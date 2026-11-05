@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" width="640" height="160">
+  <title>NavCore</title>
+  <!-- icon: route A -> B going around an obstacle -->
+  <rect x="0" y="0" width="160" height="160" rx="36" fill="#0F1B2D"/>
+  <rect x="68" y="88" width="24" height="24" rx="4" fill="#FF5C7A"/>
+  <path d="M30 100 H48 C60 100 58 58 80 58 C102 58 100 100 112 100 H130"
+        fill="none" stroke="#2EE59D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="30" cy="100" r="10" fill="#0F1B2D" stroke="#FFFFFF" stroke-width="5"/>
+  <circle cx="130" cy="100" r="13" fill="#2EE59D"/>
+  <circle cx="130" cy="100" r="5" fill="#0F1B2D"/>
+
+  <!-- name -->
+  <text x="190" y="104" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="72" letter-spacing="-1">
+    <tspan fill="#0F1B2D" font-weight="300">Nav</tspan><tspan fill="#12B886" font-weight="700">Core</tspan>
+  </text>
+  <text x="194" y="134" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" textLength="420" lengthAdjust="spacingAndGlyphs" fill="#5B6B80">
+    AUTONOMOUS NAVIGATION · OBSTACLE AVOIDANCE
+  </text>
+</svg>

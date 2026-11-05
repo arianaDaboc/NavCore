@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="512" height="512">
+  <title>NavCore</title>
+  <rect x="0" y="0" width="160" height="160" rx="36" fill="#0F1B2D"/>
+  <rect x="68" y="88" width="24" height="24" rx="4" fill="#FF5C7A"/>
+  <path d="M30 100 H48 C60 100 58 58 80 58 C102 58 100 100 112 100 H130"
+        fill="none" stroke="#2EE59D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="30" cy="100" r="10" fill="#0F1B2D" stroke="#FFFFFF" stroke-width="5"/>
+  <circle cx="130" cy="100" r="13" fill="#2EE59D"/>
+  <circle cx="130" cy="100" r="5" fill="#0F1B2D"/>
+</svg>
