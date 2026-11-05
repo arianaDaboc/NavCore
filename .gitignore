@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+# local Wi-Fi credentials: never committed
+wifi_secrets.h
+# Arduino IDE build output; .bin files also contain the Wi-Fi credentials
+build/
+*.bin
+# local working copy and the old Python simulator
+/navcore_wifi/
+/navcore_sim.py
+/server.py
+/static/
