@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NavCore — Video Demonstration</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #0F1B2D; color: #fff; font-family: Arial, sans-serif; }
+    body { display: grid; place-items: center; padding: 24px; }
+    main { width: min(1200px, 100%); }
+    h1 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 40px); }
+    p { margin: 0 0 20px; color: #2EE59D; font-size: 18px; }
+    video { display: block; width: 100%; max-height: calc(100vh - 150px); background: #000; border-radius: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>NavCore</h1>
+    <p>Autonomous navigation and obstacle avoidance</p>
+    <video controls autoplay playsinline preload="metadata">
+      <source src="https://github.com/arianaDaboc/NavCore/releases/download/demo/NavCore_demo.mp4" type="video/mp4">
+      Your browser does not support MP4 video playback.
+    </video>
+  </main>
+</body>
+</html>
