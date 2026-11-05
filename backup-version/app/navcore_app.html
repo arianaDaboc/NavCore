@@ -1,0 +1,1951 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulator NavCore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  color-scheme: light;
+  --page: #EEF1F5; --surface: #FFFFFF; --surface-2: #F6F8FB; --line: #DCE2EA; --line-strong: #C5CEDA;
+  --ink: #111A24; --muted: #5E6B7A; --faint: #8A96A3;
+  --floor: #F6F8FB; --floor-in: #FBFCFD; --grid: #E6EBF1; --grid-strong: #CBD4DE; --wall: #7C8B97;
+  --tape: #2F6FDE; --box: #D3AE78; --box-edge: #8A6431; --robot: #FFFFFF; --robot-edge: #111A24;
+  --wheel: #2B3A44; --cone: rgba(0, 150, 200, .18); --hit: #0A8FB8; --trail: #7A4FD6;
+  --bad: #D0362A; --bad-soft: #FDECEA; --ok: #158A5B; --ok-soft: #E6F5EE; --accent: #2F6FDE; --accent-soft: #EAF1FD;
+  --accent-ink: #FFFFFF; --mark: #E08A00; --real: #0E8F5F; --surprise: #D6336C; --surprise-fill: #F7C9DA;
+  --shadow: 0 1px 2px rgba(17, 26, 36, .06), 0 4px 16px rgba(17, 26, 36, .05);
+  --shadow-pop: 0 10px 32px rgba(17, 26, 36, .18), 0 2px 6px rgba(17, 26, 36, .08);
+  --radius: 12px;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0B1116; --surface: #141C23; --surface-2: #19232B; --line: #25313B; --line-strong: #34424E;
+    --ink: #E6EDF2; --muted: #9AA9B5; --faint: #6F7F8C;
+    --floor: #10181E; --floor-in: #121B22; --grid: #1A252D; --grid-strong: #2A3843; --wall: #5E7280;
+    --tape: #5C98FF; --box: #B08E5C; --box-edge: #E2C48F; --robot: #22313B; --robot-edge: #E6EDF2;
+    --wheel: #9FB2BE; --cone: rgba(80, 200, 240, .16); --hit: #5ED0F2; --trail: #A98BFF;
+    --bad: #FF6B5B; --bad-soft: #3A1B19; --ok: #4ED19B; --ok-soft: #12312A; --accent: #5C98FF; --accent-soft: #172A47;
+    --accent-ink: #07111C; --mark: #FFB547; --real: #4ED19B; --surprise: #FF6FA3; --surprise-fill: #5A2338;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3); --shadow-pop: 0 12px 36px rgba(0, 0, 0, .55);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0B1116; --surface: #141C23; --surface-2: #19232B; --line: #25313B; --line-strong: #34424E;
+  --ink: #E6EDF2; --muted: #9AA9B5; --faint: #6F7F8C;
+  --floor: #10181E; --floor-in: #121B22; --grid: #1A252D; --grid-strong: #2A3843; --wall: #5E7280;
+  --tape: #5C98FF; --box: #B08E5C; --box-edge: #E2C48F; --robot: #22313B; --robot-edge: #E6EDF2;
+  --wheel: #9FB2BE; --cone: rgba(80, 200, 240, .16); --hit: #5ED0F2; --trail: #A98BFF;
+  --bad: #FF6B5B; --bad-soft: #3A1B19; --ok: #4ED19B; --ok-soft: #12312A; --accent: #5C98FF; --accent-soft: #172A47;
+  --accent-ink: #07111C; --mark: #FFB547; --real: #4ED19B; --surprise: #FF6FA3; --surprise-fill: #5A2338;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3); --shadow-pop: 0 12px 36px rgba(0, 0, 0, .55);
+}
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font-family: var(--font-body); font-size: 14px; line-height: 1.45;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+button, select, input, textarea { font: inherit; color: inherit; box-sizing: border-box; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { margin: 0; letter-spacing: -.01em; }
+
+.appbar {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px);
+}
+.appbar .in {
+  max-width: 1360px; margin: 0 auto; padding: 10px 16px;
+  display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.logo { width: 32px; height: 32px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.logo svg { width: 20px; height: 20px; }
+.brand h1 { font-size: 17px; font-weight: 700; line-height: 1.1; }
+.brand p { margin: 0; font-size: 12.5px; color: var(--muted); }
+.conn { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.conn .state { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; font-size: 13px; white-space: nowrap; }
+.conn input { width: 190px; }
+.chip {
+  font-weight: 600; font-size: 13px; padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+}
+.chip[data-tone="run"] { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.chip[data-tone="ok"] { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
+.chip[data-tone="bad"] { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
+.notice { max-width: 1360px; margin: 10px auto 0; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--mark); background: var(--surface); font-size: 13px; }
+.notice[hidden] { display: none; }
+
+.layout {
+  max-width: 1360px; margin: 0 auto; padding: 14px 16px 32px;
+  display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); align-items: start;
+}
+@media (min-width: 1040px) { .layout { grid-template-columns: minmax(0, 1fr) 320px; } }
+.mainCol, .rail { display: grid; gap: 14px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; }
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px 0; }
+.cardHead h2 { font-size: 14px; font-weight: 650; }
+.cardBody { padding: 12px 14px 14px; display: grid; gap: 10px; min-width: 0; }
+
+.stats { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .stats { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; box-shadow: var(--shadow); min-width: 0; }
+.stat .k { font-size: 11.5px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+.stat .v { font-size: 16px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .v.bad { color: var(--bad); }
+.stat.wide { grid-column: span 2; }
+@media (min-width: 640px) and (max-width: 899px) { .stat.wide { grid-column: auto; } }
+
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.toolbar .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+.toolbar label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.clock { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; }
+.canvasWrap { position: relative; background: var(--floor); touch-action: none; }
+canvas { display: block; width: 100%; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+.progress { padding: 10px 14px 4px; }
+.bar { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+.bar > span { display: block; height: 100%; width: 0; background: var(--tape); transition: width .12s linear; }
+.barLabel { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.caption { margin: 0; padding: 6px 14px 12px; color: var(--muted); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.caption span { display: inline-flex; align-items: center; gap: 5px; }
+.caption i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.howto { margin: 0; padding: 0 14px 12px; color: var(--faint); font-size: 12.5px; }
+
+button {
+  border: 1px solid var(--line-strong); background: var(--surface); border-radius: 8px; padding: 7px 13px;
+  font-weight: 550; cursor: pointer; line-height: 1.2; transition: background .12s, border-color .12s;
+}
+button:hover { background: var(--surface-2); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); min-width: 104px; }
+button.primary:hover { filter: brightness(1.06); }
+button.danger { background: var(--bad); border-color: var(--bad); color: #fff; min-width: 104px; }
+button.ghostDanger { border-color: transparent; background: var(--bad-soft); color: var(--bad); }
+button.quiet { padding: 4px 10px; font-size: 12.5px; border-color: var(--line); }
+select, input[type="number"], input[type="text"], textarea {
+  border: 1px solid var(--line-strong); background: var(--surface); border-radius: 8px; padding: 6px 9px; min-width: 0;
+}
+input[type="number"] { width: 76px; }
+.field { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.field input, .field select { color: var(--ink); width: 100%; font-weight: 400; }
+.row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: end; }
+.row > .field { flex: 1 1 90px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.hint { margin: 0; color: var(--muted); font-size: 12.5px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+.dot[data-s="on"] { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+.dot[data-s="wait"] { background: var(--mark); }
+.dot[data-s="off"] { background: var(--bad); }
+textarea { width: 100%; min-height: 80px; resize: vertical; background: var(--surface-2); font-size: 12px; }
+details.more > summary { cursor: pointer; font-size: 13px; font-weight: 550; color: var(--muted); padding: 2px 0; }
+details.more > .inner { display: grid; gap: 8px; padding-top: 8px; }
+
+.palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile {
+  display: grid; justify-items: center; gap: 4px; padding: 10px 4px 8px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface-2); cursor: grab; touch-action: none; user-select: none;
+  font-weight: 550; font-size: 12px;
+}
+.tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+.tile:active { cursor: grabbing; }
+.tile svg { width: 40px; height: 40px; overflow: visible; }
+.tile small { color: var(--muted); font-weight: 500; font-size: 11px; }
+.custom { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.custom .field { flex: 1 1 70px; }
+.custom input { width: 100%; }
+.routeRow { display: flex; align-items: center; gap: 8px; }
+.routeRow input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.routeRow input[type="number"] { width: 76px; }
+button[hidden] { display: none; }
+.customBtn { padding: 7px 10px; font-size: 12.5px; display: inline-block; }
+.ghost {
+  position: fixed; z-index: 50; pointer-events: none; border: 2px solid var(--box-edge); background: var(--box);
+  opacity: .75; border-radius: 2px; transform: translate(-50%, -50%);
+}
+.sel { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 10px; display: grid; gap: 8px; }
+.sel[hidden] { display: none; }
+.sel h3 { font-size: 13px; font-weight: 650; }
+.obsList { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 220px; overflow: auto; }
+.obsList li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 8px; }
+.obsList li:hover { background: var(--surface-2); }
+.obsList .pick { text-align: left; border: 0; background: none; padding: 2px 0; font-weight: 450; font-size: 13px; flex: 1; min-width: 0; }
+.obsList .pick[aria-pressed="true"] { color: var(--accent); font-weight: 650; }
+.obsList .x { border: 0; background: none; padding: 2px 6px; color: var(--faint); font-size: 16px; line-height: 1; }
+.obsList .x:hover { color: var(--bad); background: var(--bad-soft); }
+.subhead { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
+.pop {
+  position: absolute; z-index: 30; min-width: 220px; max-width: 280px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-pop);
+  padding: 10px; display: grid; gap: 8px;
+}
+.pop[hidden] { display: none; }
+.pop h3 { font-size: 13px; font-weight: 650; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pop h3 button { border: 0; background: none; padding: 0 4px; font-size: 18px; color: var(--faint); line-height: 1; }
+.pop .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pop .grid3 button { padding: 6px 2px; font-size: 12px; display: grid; justify-items: center; gap: 2px; }
+.pop .grid3 small { color: var(--muted); font-size: 10.5px; font-weight: 500; }
+.pop .row .field { flex: 1 1 60px; }
+.pop .row input { width: 100%; }
+
+.log {
+  height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+  font: 12.5px/1.45 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; background: var(--surface-2);
+}
+.log div { padding: 1px 0; overflow-wrap: anywhere; }
+.log .t { color: var(--faint); margin-right: 8px; }
+.log .warn { color: var(--bad); font-weight: 600; }
+.log .key { font-weight: 600; }
+.log .robot { color: var(--real); }
+.log .sepLine { margin: 6px 0 2px; padding-top: 6px; border-top: 1px dashed var(--line-strong); color: var(--muted); font-weight: 600; }
+.empty { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
+</style>
+</head>
+<body>
+<header class="appbar">
+  <div class="in">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="14" height="11" rx="2"/><path d="M9 7V4h6v3M8 12h.01M16 12h.01M9 21v-3M15 21v-3"/></svg></div>
+      <div><h1>NavCore</h1><p>Simulator și control în timp real</p></div>
+    </div>
+    <div class="conn">
+      <span class="state"><span class="dot" id="liveDot" data-s=""></span><span id="liveText">Neconectat</span></span>
+      <input type="text" id="liveAddr" placeholder="172.20.10.8 sau navcore.local" autocomplete="off" spellcheck="false" aria-label="Adresa robotului">
+      <button id="btnLive">Conectează</button>
+      <span class="hint" id="rRssi" title="Semnal Wi-Fi">—</span>
+    </div>
+    <div class="chip" id="chip" role="status" data-tone="">Oprit</div>
+  </div>
+</header>
+<p class="notice" id="liveNotice" hidden></p>
+
+<main class="layout">
+  <section class="mainCol">
+    <div class="stats" aria-label="Starea robotului">
+      <div class="stat wide"><div class="k">Stare</div><div class="v" id="vMode">—</div></div>
+      <div class="stat"><div class="k">Poziție x, y</div><div class="v" id="vPos">0, 0 cm</div></div>
+      <div class="stat"><div class="k">Unghi</div><div class="v" id="vAng">0°</div></div>
+      <div class="stat wide"><div class="k">Senzori față / stânga / dreapta</div><div class="v" id="vSens">—</div></div>
+      <div class="stat"><div class="k">Progres</div><div class="v" id="vProg">0 cm</div></div>
+      <div class="stat"><div class="k">Ocoliri</div><div class="v" id="vAvoid">0</div></div>
+      <div class="stat wide"><div class="k">Estimat în ocolire (x, y)</div><div class="v" id="vEst">—</div></div>
+      <div class="stat"><div class="k">Distanța minimă</div><div class="v" id="vMin">—</div></div>
+      <div class="stat"><div class="k">Contacte</div><div class="v" id="vHit">0</div></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <button class="primary" id="btnRun">Pornește</button>
+        <button id="btnStep" title="Avansează 0,25 secunde">Pas</button>
+        <button id="btnReset">Resetează</button>
+        <span class="sep" aria-hidden="true"></span>
+        <label>Viteză
+          <select id="speed">
+            <option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option>
+          </select>
+        </label>
+        <span class="clock" id="clock">0,0 s</span>
+      </div>
+      <div class="canvasWrap" id="canvasWrap">
+        <canvas id="floor" role="img" aria-label="Vedere de sus a podelei de test, cu robotul, traseul și obstacolele"></canvas>
+        <div class="pop" id="pop" hidden></div>
+      </div>
+      <div class="progress">
+        <div class="bar" aria-hidden="true"><span id="barFill"></span></div>
+        <div class="barLabel"><span>A</span><span id="barText">0 / 190 cm</span><span>B</span></div>
+      </div>
+      <p class="caption"><span><i style="background:var(--tape)"></i>traseul A–B</span><span><i style="background:var(--trail)"></i>urma simulată</span><span><i style="background:var(--real)"></i>robotul real</span><span><i style="background:var(--surprise)"></i>obstacol neprevăzut (pus în timpul cursei)</span><span><i style="background:var(--mark)"></i>margine și spate estimate</span><span><i style="background:var(--hit)"></i>punct citit de senzor</span></p>
+      <p class="howto">Apasă pe podea ca să adaugi un obiect · trage pe podea ca să desenezi unul · trage un obiect ca să-l muți · apasă pe un obiect ca să-l editezi sau să-l ștergi</p>
+    </div>
+
+    <div class="card">
+      <div class="cardHead"><h2>Jurnal</h2>
+        <div class="row" style="gap:6px">
+          <button class="quiet" id="btnExportRun" title="Jurnalul, traseul și obstacolele ultimei curse, ca fișier JSON">Exportă cursa</button>
+          <button class="quiet" id="btnExportCsv" title="Punctele traseului ultimei curse, ca fișier CSV">Traseu CSV</button>
+          <button class="quiet" id="btnClearLog">Șterge jurnalul</button>
+        </div>
+      </div>
+      <div class="cardBody"><div class="log" id="log" aria-live="off"></div></div>
+    </div>
+  </section>
+
+  <aside class="rail">
+    <section class="card">
+      <div class="cardHead"><h2>Obiecte</h2></div>
+      <div class="cardBody">
+        <p class="hint">Trage un obiect pe hartă sau apasă pe el ca să-l pui pe traseu.</p>
+        <div class="palette" id="palette"></div>
+        <div class="custom">
+          <label class="field">Lățime<input type="number" id="newDy" min="4" max="80" value="17"></label>
+          <label class="field">Adâncime<input type="number" id="newDx" min="4" max="80" value="17"></label>
+          <button type="button" class="tile customBtn" id="btnCustom" aria-label="Adaugă obiect personalizat">Personalizat</button>
+        </div>
+        <div class="sel" id="selPanel" hidden>
+          <h3 id="selTitle">Obiect selectat</h3>
+          <div class="row">
+            <label class="field">Lățime<input type="number" id="selW" min="4" max="80" step="1"></label>
+            <label class="field">Adâncime<input type="number" id="selD" min="4" max="80" step="1"></label>
+          </div>
+          <div class="row">
+            <label class="field">Fața la x<input type="number" id="selX" step="1"></label>
+            <label class="field">Centrul la y<input type="number" id="selY" step="1"></label>
+          </div>
+          <div class="row"><button class="ghostDanger" id="selDel">Șterge obiectul</button></div>
+        </div>
+        <div class="subhead"><span>Pe podea</span><button class="quiet" id="btnClearObs">Șterge toate</button></div>
+        <ul class="obsList" id="obsList"></ul>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="cardHead"><h2>Scenariu</h2></div>
+      <div class="cardBody">
+        <label class="field">Scenariu<select id="preset"></select></label>
+        <div class="field">
+          <label for="route">Lungimea traseului A–B</label>
+          <div class="routeRow">
+            <input type="range" id="routeRange" min="100" max="600" step="5" value="190" aria-label="Lungimea traseului">
+            <input type="number" id="route" min="100" max="600" step="5" value="190">
+            <span class="hint">cm</span>
+          </div>
+          <p class="hint">Poți trage și linia B direct pe hartă.</p>
+        </div>
+        <label class="check"><input type="checkbox" id="wallLeft" checked> Perete în stânga, la 30 cm</label>
+        <label class="check"><input type="checkbox" id="noise"> Zgomot la senzori și derivă la gyro</label>
+        <div class="row">
+          <button class="primary" id="btnSaveScen" type="button">Salvează ca scenariu nou</button>
+          <button id="btnUpdateScen" type="button" hidden>Salvează modificările</button>
+          <button class="ghostDanger" id="btnDelScen" type="button" hidden>Șterge scenariul</button>
+        </div>
+        <p class="hint" id="scenMsg"></p>
+        <div class="row"><button class="quiet" id="btnLoad" type="button">Reîncarcă scenariul</button></div>
+        <details class="more">
+          <summary>Salvează sau încarcă traseul</summary>
+          <div class="inner">
+            <textarea id="saveText" spellcheck="false" aria-label="Traseul ca text" placeholder="Apasă Exportă ca să vezi traseul ca text. Lipește aici un traseu salvat și apasă Importă."></textarea>
+            <div class="row"><button class="quiet" id="btnExport">Exportă</button><button class="quiet" id="btnImport">Importă</button></div>
+            <p class="hint" id="saveMsg"></p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="cardHead"><h2>Afișare</h2></div>
+      <div class="cardBody">
+        <label class="check"><input type="checkbox" id="showCones" checked> Conurile senzorilor</label>
+        <label class="check"><input type="checkbox" id="showTrail" checked> Urma robotului</label>
+        <label class="check"><input type="checkbox" id="showMarks" checked> Marginea și spatele estimate</label>
+      </div>
+    </section>
+    <section class="card">
+      <div class="cardHead"><h2>Calibrarea odometriei</h2></div>
+      <div class="cardBody">
+        <p class="hint">Acum în robot: <b id="calNow">—</b></p>
+        <p class="hint"><b>1. Distanța.</b> Pune traseul la 200 cm, fără obstacole, și pornește. Marchează pe podea un punct al robotului (de ex. spatele) la start și la oprire, apoi măsoară cu ruleta distanța dintre ele.</p>
+        <p class="hint">Robotul a crezut că a mers: <b id="calRobotX">— (fă o cursă întâi)</b></p>
+        <div class="row">
+          <label class="field">Distanța reală (cm)<input type="number" id="calRealCm" min="50" max="600" step="0.5"></label>
+          <button id="btnCalDist" type="button">Salvează distanța</button>
+        </div>
+        <p class="hint"><b>2. Rotirea.</b> Aliniază o margine a robotului cu o linie de pe podea (bandă, rost de gresie) și apasă butonul: robotul se rotește pe loc o tură completă spre dreapta, după giroscop.</p>
+        <div class="row"><button id="btnCalTurn" type="button">Rotire 360°</button></div>
+        <p class="hint">Giroscopul a măsurat: <b id="calGyroDeg">— (fă testul întâi)</b></p>
+        <div class="row">
+          <label class="field">Rotirea reală (grade)<input type="number" id="calRealDeg" min="300" max="420" step="1" value="360"></label>
+          <button id="btnCalTurnSave" type="button">Salvează rotirea</button>
+        </div>
+        <p class="hint">Dacă s-a rotit mai mult de o tură, scrie 360 + cât a depășit (ex. 365); dacă mai puțin, 360 − cât i-a lipsit (ex. 354).</p>
+        <div class="row"><button id="btnCalReset" type="button">Valorile inițiale</button></div>
+        <p class="hint" id="calMsg">Funcționează doar cu robotul conectat și oprit.</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="cardHead"><h2>Firmware prin Wi-Fi</h2></div>
+      <div class="cardBody">
+        <p class="hint">În Arduino IDE: Sketch → Export Compiled Binary. Alege apoi fișierul <b>navcore_wifi.ino.bin</b> din folderul <i>build</i> al proiectului. Parola e AP_PASS (sau OTA_PASS) din wifi_secrets.h.</p>
+        <input type="file" id="fwFile" accept=".bin" aria-label="Fișierul de firmware">
+        <label class="field">Parola<input type="password" id="fwKey" autocomplete="off"></label>
+        <div class="row"><button class="primary" id="btnFw" type="button">Încarcă firmware</button></div>
+        <div class="bar" aria-hidden="true"><span id="fwBar"></span></div>
+        <p class="hint" id="fwMsg">Funcționează doar cu robotul conectat și oprit.</p>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<script>
+
+// Simulator: robot physics, VL53L0X sensors and the same avoidance logic as the firmware.
+(function (root) {
+  'use strict';
+
+  var D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  var ROBOT = { len: 24, wid: 16, axleToRear: 10.5, front: 13.5, sideOffset: 6, wheelBase: 11, ppc: 2.2 };
+
+  var PLANT = { v0: 21, dead: -10, tau: 0.1, brakeTau: 0.1 };
+  var CTRL_PERIOD = 0.05;
+  var DT = 0.01;
+
+  var FW = {
+    forwardPwm: 130, leftTrim: 7, rightTrim: -7, kp: 2.0, maxCorr: 20,
+    triggerMm: 270, safetyMm: 100, nearInvalidMm: 300, confirmReads: 3,
+    sideClearanceMinMm: 300,
+    outArcAngle: 60, retArcAngle: 60, arcTol: 8, arcEndTol: 4, arcMaxCorr: 50,
+    exitK: 20.5, exitKRet: 17.5, arcStartEarly: 10,
+    edgeMissMarginCm: 10, edgeConeCompDeg: 6,
+    robotHalfWidth: 8, sideClearanceCm: 4, minSideStep: 12, maxSideStep: 55,
+    sensorAhead: 13.5, sideSensorAhead: 13.5, sideSensorOffset: 6,
+    axleToRear: 10.5, obstacleMaxDepth: 20, maxObstacleCm: 90,
+    sideNearMm: 300, sideClearConfirm: 4, rearMargin: 1,
+    routeLength: 190, arrivalZone: 40, maxAvoidances: 6,
+    headingTol: 2
+  };
+
+  function rayRect(ox, oy, dx, dy, r) {
+    var tmin = 0, tmax = 1e9, t1, t2, t;
+    if (Math.abs(dx) < 1e-9) { if (ox < r.x0 || ox > r.x1) return null; }
+    else {
+      t1 = (r.x0 - ox) / dx; t2 = (r.x1 - ox) / dx;
+      if (t1 > t2) { t = t1; t1 = t2; t2 = t; }
+      if (t1 > tmin) tmin = t1; if (t2 < tmax) tmax = t2;
+      if (tmin > tmax) return null;
+    }
+    if (Math.abs(dy) < 1e-9) { if (oy < r.y0 || oy > r.y1) return null; }
+    else {
+      t1 = (r.y0 - oy) / dy; t2 = (r.y1 - oy) / dy;
+      if (t1 > t2) { t = t1; t1 = t2; t2 = t; }
+      if (t1 > tmin) tmin = t1; if (t2 < tmax) tmax = t2;
+      if (tmin > tmax) return null;
+    }
+    return tmin;
+  }
+  function rayArena(ox, oy, dx, dy, a) {
+    var t = 1e9;
+    if (dx > 1e-9) t = Math.min(t, (a.x1 - ox) / dx); else if (dx < -1e-9) t = Math.min(t, (a.x0 - ox) / dx);
+    if (dy > 1e-9) t = Math.min(t, (a.y1 - oy) / dy); else if (dy < -1e-9) t = Math.min(t, (a.y0 - oy) / dy);
+    return t;
+  }
+  function obsRect(o) { return { x0: o.cx - o.dx / 2, x1: o.cx + o.dx / 2, y0: o.cy - o.dy / 2, y1: o.cy + o.dy / 2 }; }
+
+  function robotPoly(r) {
+    var c = Math.cos(r.th), s = Math.sin(r.th), pts = [], a, b, i;
+    var corners = [[ROBOT.front, ROBOT.wid / 2], [ROBOT.front, -ROBOT.wid / 2], [-ROBOT.axleToRear, -ROBOT.wid / 2], [-ROBOT.axleToRear, ROBOT.wid / 2]];
+    for (i = 0; i < 4; i++) {
+      a = corners[i][0]; b = corners[i][1];
+      pts.push([r.x + a * c - b * s, r.y + a * s + b * c]);
+    }
+    return pts;
+  }
+  function rectPoly(rc) { return [[rc.x0, rc.y0], [rc.x1, rc.y0], [rc.x1, rc.y1], [rc.x0, rc.y1]]; }
+  function ptSeg(p, a, b) {
+    var abx = b[0] - a[0], aby = b[1] - a[1], t = ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / (abx * abx + aby * aby);
+    t = clamp(t, 0, 1);
+    var dx = p[0] - (a[0] + t * abx), dy = p[1] - (a[1] + t * aby);
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function inside(p, poly) {
+    var pos = 0, neg = 0, i, a, b, c;
+    for (i = 0; i < poly.length; i++) {
+      a = poly[i]; b = poly[(i + 1) % poly.length];
+      c = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+      if (c > 0) pos++; else if (c < 0) neg++;
+    }
+    return pos === 0 || neg === 0;
+  }
+
+  function polyDist(A, B) {
+    var i, j, d = 1e9;
+    for (i = 0; i < A.length; i++) if (inside(A[i], B)) return -1;
+    for (i = 0; i < B.length; i++) if (inside(B[i], A)) return -1;
+    for (i = 0; i < A.length; i++) for (j = 0; j < B.length; j++) {
+      d = Math.min(d, ptSeg(A[i], B[j], B[(j + 1) % B.length]), ptSeg(B[j], A[i], A[(i + 1) % A.length]));
+    }
+    return d;
+  }
+
+  function World() {
+    this.arena = { x0: -30, x1: 250, y0: -90, y1: 90 };
+    this.obstacles = [];
+    this.nextId = 1;
+  }
+  World.prototype.add = function (o) {
+    o.id = this.nextId++; o.vx = o.vx || 0; o.vy = o.vy || 0; o.kind = o.vx || o.vy ? 'mobil' : 'fix';
+    this.obstacles.push(o); return o;
+  };
+  World.prototype.remove = function (id) {
+    this.obstacles = this.obstacles.filter(function (o) { return o.id !== id; });
+  };
+  World.prototype.move = function (dt) {
+    var a = this.arena, i, o;
+    for (i = 0; i < this.obstacles.length; i++) {
+      o = this.obstacles[i];
+      if (!o.vx && !o.vy) continue;
+      o.cx += o.vx * dt; o.cy += o.vy * dt;
+      if (o.cx - o.dx / 2 < a.x0 || o.cx + o.dx / 2 > a.x1) { o.vx = -o.vx; o.cx += o.vx * dt * 2; }
+      if (o.cy - o.dy / 2 < a.y0 || o.cy + o.dy / 2 > a.y1) { o.vy = -o.vy; o.cy += o.vy * dt * 2; }
+    }
+  };
+
+  World.prototype.read = function (ox, oy, angRad, noise, rng) {
+    var cone = 12, offs = [-cone, 0, cone], best = 1e9, i, j, a, dx, dy, t, r;
+    for (i = 0; i < 3; i++) {
+      a = angRad + offs[i] * D2R; dx = Math.cos(a); dy = Math.sin(a);
+      t = rayArena(ox, oy, dx, dy, this.arena); if (t < best) best = t;
+      for (j = 0; j < this.obstacles.length; j++) {
+        r = rayRect(ox, oy, dx, dy, obsRect(this.obstacles[j]));
+        if (r !== null && r < best) best = r;
+      }
+    }
+    var mm = best * 10;
+    if (mm > 1200) return 8190;
+    if (noise) {
+      if (rng() < 0.01) return 8190;
+      mm += (rng() + rng() + rng() - 1.5) * 7;
+    }
+    return Math.max(20, Math.round(mm));
+  };
+
+  function Robot(x, y, th) {
+    this.x = x || 0; this.y = y || 0; this.th = th || 0;
+    this.vl = 0; this.vr = 0; this.encL = 0; this.encR = 0; this.odo = 0;
+  }
+  function pwmToV(p) {
+    var s = p < 0 ? -1 : 1, m = Math.abs(p);
+    return s * PLANT.v0 * Math.max(m - PLANT.dead, 0) / (130 - PLANT.dead);
+  }
+
+  Robot.prototype.step = function (dt, cmd, noise, rng) {
+    var tl, tr, tau = PLANT.tau;
+    if (cmd.brake) { tl = 0; tr = 0; tau = PLANT.brakeTau; }
+    else { tl = pwmToV(cmd.l); tr = pwmToV(cmd.r); }
+    var a = dt / tau;
+    this.vl += (tl - this.vl) * a; this.vr += (tr - this.vr) * a;
+    var v = (this.vl + this.vr) / 2, w = (this.vr - this.vl) / ROBOT.wheelBase;
+    this.th += w * dt / 2;
+    this.x += v * Math.cos(this.th) * dt; this.y += v * Math.sin(this.th) * dt;
+    this.th += w * dt / 2;
+    var kL = 1, kR = 1;
+    if (noise) { kL = 1.02; kR = 0.985; }
+    this.encL += Math.abs(this.vl) * dt * ROBOT.ppc * kL;
+    this.encR += Math.abs(this.vr) * dt * ROBOT.ppc * kR;
+  };
+
+  function FrontFilter() { this.counter = 0; this.lastValid = 8190; this.limit = FW.triggerMm; this.invalidIsNear = true; }
+  FrontFilter.prototype.reset = function () { this.counter = 0; this.lastValid = 8190; };
+  FrontFilter.prototype.update = function (d) {
+    if (d >= 8000) {
+      if (this.invalidIsNear && this.lastValid < FW.nearInvalidMm) this.counter++;
+    } else {
+      this.lastValid = d;
+      if (d > 0 && d < this.limit) this.counter++; else this.counter = 0;
+    }
+    if (this.counter >= FW.confirmReads) { this.counter = 0; return true; }
+    return false;
+  };
+
+  function Nav(log) {
+    this.log = log || function () {};
+    this.reset();
+  }
+  Nav.prototype.reset = function () {
+    this.mode = 'DRIVE'; this.progress = 0; this.avoidances = 0; this.seg = null;
+    this.filter = new FrontFilter(); this.side = 0; this.advance = 0;
+    this.pathHeading = null; this.dbg = {}; this.chooseAcc = null; this.t0 = 0;
+    this.alignSettle = 0; this.alignT = 0; this.alignHold = 0;
+  };
+  Nav.prototype.fwdPwm = function (heading, target, maxc) {
+    var err = heading - target, corr = clamp(FW.kp * err, -maxc, maxc);
+
+    return { l: FW.forwardPwm - corr, r: FW.forwardPwm + corr, corr: corr };
+  };
+  var STOP = { l: 0, r: 0, brake: true };
+  var COAST = { l: 0, r: 0, brake: true };
+
+  // One control step (every 50 ms), with the same states as the firmware.
+  Nav.prototype.tick = function (S) {
+    var self = this, t = S.t, out;
+    if (this.pathHeading === null) this.pathHeading = S.heading;
+    switch (this.mode) {
+
+      case 'DRIVE': {
+        if (!this.seg) {
+          this.seg = { startAvg: S.avg };
+          this.filter.limit = FW.triggerMm; this.filter.invalidIsNear = true; this.filter.reset();
+          this.log('[TRASEU] progres ' + this.progress.toFixed(1) + ' / ' + FW.routeLength.toFixed(0) + ' cm');
+        }
+        var f = S.readFront(); this.lastFront = f;
+        if (this.filter.update(f)) {
+          this.log('!!! OBSTACOL CONFIRMAT IN FATA (citire ' + f + ' mm) !!!');
+          this.mode = 'BRAKE'; this.brakeUntil = t + 0.6;
+          return STOP;
+        }
+        var trav = (S.avg - this.seg.startAvg) / ROBOT.ppc;
+        if (trav >= FW.routeLength - this.progress) {
+          this.progress += trav; this.mode = 'ARRIVED';
+          this.log('[TRASEU] destinatia B atinsa.');
+          return STOP;
+        }
+        var p = this.fwdPwm(S.heading, this.pathHeading, FW.maxCorr);
+        return p;
+      }
+
+      case 'BRAKE': {
+        if (t < this.brakeUntil) return STOP;
+        this.progress += (S.avg - this.seg.startAvg) / ROBOT.ppc;
+        this.seg = null;
+        if (FW.routeLength - this.progress <= FW.arrivalZone) {
+          this.mode = 'ARRIVED';
+          this.log('[TRASEU] obstacol in zona de sosire (peretele de la B): destinatia atinsa.');
+          return STOP;
+        }
+        this.avoidances++;
+        if (this.avoidances > FW.maxAvoidances) {
+          this.mode = 'FAILED'; this.log('PREA MULTE OCOLIRI PE ACEST TRASEU. ROBOT OPRIT.');
+          return STOP;
+        }
+        this.log('Obstacol detectat (ocolirea ' + this.avoidances + '). Pornim manevra de ocolire.');
+        this.mode = 'CHOOSE'; this.chooseAcc = { n: 0, l: 0, r: 0, f: 0 };
+        return STOP;
+      }
+
+      case 'CHOOSE': {
+        var acc = this.chooseAcc;
+        acc.l += S.readLeft(); acc.r += S.readRight(); acc.f += S.readFront(); acc.n++;
+        if (acc.n < 3) return STOP;
+        var la = acc.l / 3, ra = acc.r / 3, fa = acc.f / 3;
+        this.frontStopMm = fa > 700 ? 450 : fa;
+        this.startLeftMm = la; this.startRightMm = ra;
+        this.log('Spatiu LEFT mediu: ' + Math.round(la) + ' mm | RIGHT mediu: ' + Math.round(ra) + ' mm | FRONT: ' + Math.round(this.frontStopMm) + ' mm');
+        var lc = la >= FW.sideClearanceMinMm, rc = ra >= FW.sideClearanceMinMm;
+        if (!lc && !rc) {
+          this.mode = 'FAILED'; this.log('AMBELE LATERALE PAR BLOCATE. NU OCOLIM!');
+          return STOP;
+        }
+        this.side = (lc && (!rc || la >= ra)) ? -1 : 1;
+        this.log('OCOLIRE ALEASA: ' + (this.side < 0 ? 'STANGA' : 'DREAPTA') + '.');
+        this.startOut(S);
+        return this.fwdPwm(S.heading, this.out.target, FW.arcMaxCorr);
+      }
+
+      case 'OUT': return this.tickOut(S);
+      case 'RET': return this.tickRet(S);
+
+      case 'ALIGN': {
+
+        var err = S.heading - this.pathHeading;
+        if (this.alignT === 0) this.alignT = t;
+        if (t - this.alignT > 12) { this.mode = 'FAILED'; this.log('EROARE: TIMEOUT ALINIERE'); return STOP; }
+        if (t < this.alignHold) return STOP;
+        if (Math.abs(err) <= FW.headingTol) {
+          this.progress += this.advance;
+          this.log('========== OCOLIRE TERMINATA | progres in ocolire: ' + this.advance.toFixed(1) + ' cm ==========');
+          this.mode = 'DRIVE'; this.seg = null;
+          return STOP;
+        }
+        var m = clamp(8 + 0.8 * Math.abs(err), 10, 40);
+        this.alignHold = t + 0.35;
+        return err > 0 ? { l: -m, r: m } : { l: m, r: -m };
+      }
+
+      default: return STOP;
+    }
+  };
+
+  Nav.prototype.startOut = function (S) {
+    var side = this.side;
+    this.filter.limit = FW.safetyMm; this.filter.invalidIsNear = false; this.filter.reset();
+    this.out = {
+      side: side, target: this.pathHeading + side * FW.outArcAngle,
+      xFace: FW.sensorAhead + this.frontStopMm / 10, prevAvg: S.avg,
+      X: 0, Y: 0, l1: 0, phase: 0, yAtExit: 0, devAtExit: 0,
+      haveHit: false, lastHitY: 0, lastHitD: 0, missCount: 0, edgeFound: false, yGoal: FW.maxSideStep, yEdge: 0,
+      sideSeen: false, sideFar: 0, rearOK: false, boxMaxX: -1000,
+      obstacleSideStart: side > 0 ? this.startLeftMm : this.startRightMm,
+      sensor: side > 0 ? 'readLeft' : 'readRight', lastPrint: -1
+    };
+    this.dbg = { pts: [], side: side };
+    this.log('IESIRE PE ARC | fata obstacolului la X = ' + this.out.xFace.toFixed(1) + ' cm de axa | heading tinta arc: ' + (this.out.target - this.pathHeading).toFixed(0));
+    this.mode = 'OUT';
+  };
+  Nav.prototype.tickOut = function (S) {
+    var o = this.out, side = o.side, t = S.t;
+    var front = S.readFront(); this.lastFront = front;
+    if (this.filter.update(front)) {
+      this.mode = 'FAILED'; this.log('OPRIRE DE SIGURANTA IN IESIRE PE ARC! (citire ' + front + ' mm)');
+      return STOP;
+    }
+    var devSigned = side * (S.heading - this.pathHeading);
+    var thR = devSigned * D2R, cosT = Math.cos(thR), sinT = Math.sin(thR);
+    if (S.avg > o.prevAvg) {
+      var ds = (S.avg - o.prevAvg) / ROBOT.ppc;
+      o.X += ds * cosT; o.Y += ds * sinT; o.prevAvg = S.avg;
+    }
+
+    if (!o.edgeFound && cosT > 0.2) {
+      var dCm = front / 10, valid = front < 8000;
+      var sx = o.X + FW.sensorAhead * cosT, dExp = (o.xFace - sx) / cosT;
+      if (valid && dCm <= dExp + FW.edgeMissMarginCm) {
+        o.lastHitY = o.Y + (FW.sensorAhead + dCm) * sinT; o.lastHitD = dCm; o.haveHit = true; o.missCount = 0;
+        this.dbg.lastHit = { X: o.X + (FW.sensorAhead + dCm) * cosT, Y: o.lastHitY };
+      } else if (o.haveHit) o.missCount++;
+      if (o.missCount >= 2) {
+        o.edgeFound = true;
+        o.yEdge = o.lastHitY - o.lastHitD * Math.tan(FW.edgeConeCompDeg * D2R);
+        o.yGoal = clamp(o.yEdge + FW.robotHalfWidth + FW.sideClearanceCm, FW.minSideStep, FW.maxSideStep);
+        this.dbg.edge = { X: this.dbg.lastHit ? this.dbg.lastHit.X : o.xFace, Y: o.yEdge };
+        this.log('[OUT] MARGINE GASITA la Y = ' + o.yEdge.toFixed(1) + ' (brut ' + o.lastHitY.toFixed(1) + ', d=' + o.lastHitD.toFixed(1) + ' cm) | deplasare laterala tinta: ' + o.yGoal.toFixed(1) + ' cm');
+      }
+    }
+
+    if (o.phase === 0 && devSigned >= FW.outArcAngle - FW.arcTol) {
+      o.phase = 1; o.l1 = o.Y;
+      this.log('[OUT] intrare in arc terminata | lateral castigat: ' + o.l1.toFixed(1));
+    }
+    if (o.phase < 2) {
+      var g = FW.exitK * (1 - cosT);
+      var reached = o.edgeFound ? (o.Y + g >= o.yGoal) : (o.Y + g >= FW.maxSideStep);
+      if (reached) {
+        o.phase = 2; o.target = this.pathHeading; o.yAtExit = o.Y; o.devAtExit = devSigned;
+        this.log('[OUT] iesire din arc | Y = ' + o.Y.toFixed(1) + ' | unghi = ' + devSigned.toFixed(1) + ' | castig estimat la iesire = ' + g.toFixed(1));
+      }
+    }
+    if (o.phase === 2 && Math.abs(devSigned) <= FW.arcEndTol) {
+      o.phase = 3; o.target = this.pathHeading;
+      var kReal = (o.Y - o.yAtExit) / (1 - Math.cos(o.devAtExit * D2R));
+      this.log('[OUT] castig REAL la iesire = ' + (o.Y - o.yAtExit).toFixed(1) + ' cm (K real = ' + kReal.toFixed(1) + ') | aliniat la X = ' + o.X.toFixed(1) + ', Y = ' + o.Y.toFixed(1));
+    }
+
+    if (o.phase >= 2) {
+      var sd = S[o.sensor]();
+      var sensX = o.X + FW.sideSensorAhead * cosT + FW.sideSensorOffset * sinT;
+      var wallExp = o.obstacleSideStart + o.Y * 10;
+      var nearTh = FW.sideNearMm;
+      if (wallExp - 100 < nearTh) nearTh = wallExp - 100;
+      if (nearTh < 80) nearTh = 80;
+      if (sd < nearTh) {
+        var hitX = sensX + (sd / 10) * sinT;
+        o.sideSeen = true; if (hitX > o.boxMaxX) o.boxMaxX = hitX; o.sideFar = 0;
+      } else if (o.sideSeen && sensX >= o.xFace + 2) {
+        o.sideFar++;
+        if (!o.rearOK && o.sideFar >= FW.sideClearConfirm) {
+          o.rearOK = true;
+          this.log('[OUT] spatele obstacolului depasit | adancime estimata: ' + (o.boxMaxX - o.xFace).toFixed(1) + ' cm');
+        }
+      }
+    }
+
+    if (o.phase === 3) {
+      var xCap = o.xFace + FW.maxObstacleCm;
+      var xEnd = o.xFace + FW.obstacleMaxDepth + (FW.axleToRear - FW.arcStartEarly);
+      if (o.sideSeen) xEnd = o.rearOK ? o.boxMaxX + FW.rearMargin + (FW.axleToRear - FW.arcStartEarly) : xCap;
+      if (xEnd > xCap) xEnd = xCap;
+      if (o.X >= xEnd) {
+        this.log('TRECERE TERMINATA | X = ' + o.X.toFixed(1) + ' cm | Y (lateral) = ' + o.Y.toFixed(1) + ' cm | senzor lateral a vazut obstacolul: ' + (o.sideSeen ? 'DA' : 'NU') + ' | spate confirmat: ' + (o.rearOK ? 'DA' : 'NU'));
+        this.passEnd = { X: o.X, Y: o.Y };
+        this.startRet(S);
+        return this.fwdPwm(S.heading, this.ret.target, FW.arcMaxCorr);
+      }
+    }
+    this.dbg.X = o.X; this.dbg.Y = o.Y;
+    return this.fwdPwm(S.heading, o.target, FW.arcMaxCorr);
+  };
+
+  Nav.prototype.startRet = function (S) {
+    var side = this.out.side;
+    this.ret = {
+      side: side, L: this.out.Y, target: this.pathHeading - side * FW.retArcAngle, phase: 0,
+      prevAvg: S.avg, lateral: 0, forward: 0, first: 0, t0: S.t
+    };
+    this.xEnd = this.out.X;
+    this.log('REVENIRE PE ARC | lateral de recuperat: ' + this.ret.L.toFixed(1) + ' cm | heading tinta arc: ' + (this.ret.target - this.pathHeading).toFixed(0));
+    this.mode = 'RET';
+  };
+  Nav.prototype.tickRet = function (S) {
+    var r = this.ret;
+    var front = S.readFront(); this.lastFront = front;
+    if (this.filter.update(front)) {
+      this.mode = 'FAILED'; this.log('OPRIRE DE SIGURANTA IN ARC! (citire ' + front + ' mm)');
+      return STOP;
+    }
+    var dev = Math.abs(S.heading - this.pathHeading);
+    if (S.avg > r.prevAvg) {
+      var ds = (S.avg - r.prevAvg) / ROBOT.ppc;
+      r.lateral += ds * Math.sin(dev * D2R); r.forward += ds * Math.cos(dev * D2R); r.prevAvg = S.avg;
+    }
+    if (r.phase === 0) {
+      if (dev >= FW.retArcAngle - FW.arcTol) { r.phase = 1; r.first = r.lateral; this.log('[ARC] intrare terminata | lateral castigat: ' + r.first.toFixed(1)); }
+      else if (r.lateral >= r.L / 2) { r.phase = 2; r.first = r.lateral; r.target = this.pathHeading; }
+    }
+    if (r.phase === 1 && r.lateral >= r.L - r.first) { r.phase = 2; r.target = this.pathHeading; this.log('[ARC] iesire din arc | lateral: ' + r.lateral.toFixed(1)); }
+    if (r.phase < 2 && r.lateral + FW.exitKRet * (1 - Math.cos(dev * D2R)) >= r.L) {
+      r.phase = 2; r.target = this.pathHeading; this.log('[ARC] iesire din arc (din unghiul curent) | lateral: ' + r.lateral.toFixed(1));
+    }
+    if (r.phase < 2 && r.lateral >= r.L) { r.phase = 2; r.target = this.pathHeading; }
+    if (r.phase === 2 && dev <= FW.arcEndTol) {
+      this.advance = this.xEnd + r.forward;
+      this.log('REVENIRE TERMINATA | inainte parcurs: ' + r.forward.toFixed(1) + ' cm | lateral estimat: ' + r.lateral.toFixed(1) + ' cm');
+      this.filter.limit = FW.triggerMm; this.filter.invalidIsNear = true;
+      this.mode = 'ALIGN'; this.alignT = 0; this.alignHold = S.t + 0.3;
+      return STOP;
+    }
+    if (S.t - r.t0 > 20) { this.mode = 'FAILED'; this.log('EROARE: TIMEOUT REVENIRE PE ARC'); return STOP; }
+    this.dbg.X = this.out.X; this.dbg.Y = this.out.Y - r.lateral;
+    return this.fwdPwm(S.heading, r.target, FW.arcMaxCorr);
+  };
+
+  function mulberry(seed) {
+    return function () {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function Sim(opts) {
+    opts = opts || {};
+    this.noise = !!opts.noise; this.seed = opts.seed || 1;
+    this.world = opts.world || new World();
+    this.onLog = opts.onLog || function () {};
+    this.reset();
+  }
+  Sim.prototype.reset = function () {
+    var self = this;
+    this.rng = mulberry(this.seed);
+    this.robot = new Robot(0, 0, 0);
+    this.nav = new Nav(function (m) { self.logs.push({ t: self.t, m: m }); self.onLog(self.t, m); });
+    this.logs = []; this.t = 0; this.k = 0; this.cmd = STOP; this.gyroBias = 0;
+    this.trail = [[0, 0]]; this.minClear = 1e9; this.collisions = 0; this.inCollision = false;
+    this.cmd = { l: FW.forwardPwm, r: FW.forwardPwm };
+    this.robot.vl = this.robot.vr = pwmToV(FW.forwardPwm);
+    this.robot.vl = this.robot.vr = 0;
+    this.sens = { front: 8190, left: 8190, right: 8190 };
+    this.updateSens();
+  };
+  Sim.prototype.sensorPose = function (which) {
+    var r = this.robot, c = Math.cos(r.th), s = Math.sin(r.th), off = 0, ang = r.th;
+    if (which === 'left') { off = ROBOT.sideOffset; ang = r.th + Math.PI / 2; }
+    else if (which === 'right') { off = -ROBOT.sideOffset; ang = r.th - Math.PI / 2; }
+    return { x: r.x + ROBOT.front * c - off * s, y: r.y + ROBOT.front * s + off * c, a: ang };
+  };
+  Sim.prototype.read = function (which) {
+    var p = this.sensorPose(which);
+    return this.world.read(p.x, p.y, p.a, this.noise, this.rng);
+  };
+
+  Sim.prototype.updateSens = function () {
+    var names = ['front', 'left', 'right'], i, p;
+    for (i = 0; i < 3; i++) { p = this.sensorPose(names[i]); this.sens[names[i]] = this.world.read(p.x, p.y, p.a, false, null); }
+  };
+  Sim.prototype.step = function () {
+    var self = this;
+    if (this.k % 5 === 0) {
+      var S = {
+        t: this.t,
+        heading: -this.robot.th * R2D + this.gyroBias,
+        avg: (this.robot.encL + this.robot.encR) / 2,
+        readFront: function () { return self.read('front'); },
+        readLeft: function () { return self.read('left'); },
+        readRight: function () { return self.read('right'); }
+      };
+      this.cmd = this.nav.tick(S);
+      if (this.nav.mode === 'OUT' && this.nav.dbg && !this.nav.dbg.origin) this.nav.dbg.origin = { x: this.robot.x, y: this.robot.y };
+    }
+    this.robot.step(DT, this.cmd, this.noise, this.rng);
+    this.world.move(DT);
+    if (this.noise) this.gyroBias += (this.rng() - 0.5) * 0.004;
+
+    var rp = robotPoly(this.robot), i, d, hit = false, obs = this.world.obstacles;
+    for (i = 0; i < obs.length; i++) {
+      d = polyDist(rp, rectPoly(obsRect(obs[i])));
+      if (d < 0) hit = true;
+      if (d < this.minClear) this.minClear = d;
+    }
+    if (hit && !this.inCollision) { this.collisions++; this.logs.push({ t: this.t, m: '*** CONTACT CU OBSTACOLUL ***' }); this.onLog(this.t, '*** CONTACT CU OBSTACOLUL ***'); }
+    this.inCollision = hit; this.hit = hit;
+    this.k++; this.t += DT;
+    if (this.k % 5 === 0) this.updateSens();
+    if (this.k % 4 === 0) {
+      var tr = this.trail, last = tr[tr.length - 1];
+      if (Math.abs(last[0] - this.robot.x) + Math.abs(last[1] - this.robot.y) > 0.4) tr.push([this.robot.x, this.robot.y]);
+      if (tr.length > 4000) tr.shift();
+    }
+  };
+  Sim.prototype.finished = function () { return this.nav.mode === 'ARRIVED' || this.nav.mode === 'FAILED'; };
+
+  function box(face, cy, dx, dy) { return { cx: face + dx / 2, cy: cy, dx: dx, dy: dy }; }
+  var PRESETS = [
+    { id: 'ref', group: 'Validat pe robot', name: 'Cutie de 17 × 17 cm, cu perete în stânga', route: 190, wallLeft: true, boxes: [box(60, 0, 17, 17)] },
+    { id: 'mic', group: 'Teste de mărime', name: 'Obiect mic, 8 × 8 cm', route: 190, wallLeft: true, boxes: [box(60, 0, 8, 8)] },
+    { id: 'placa', group: 'Teste de mărime', name: 'Placă lată, 35 cm lățime și 10 adâncime', route: 190, wallLeft: true, boxes: [box(60, 0, 10, 35)] },
+    { id: 'lung', group: 'Teste de mărime', name: 'Obiect lung, 10 cm lățime și 35 adâncime', route: 190, wallLeft: true, boxes: [box(60, 0, 35, 10)] },
+    { id: 'trei', group: 'Trasee', name: 'Trei mărimi la rând: 8, 17 și 35 cm', route: 330, wallLeft: false, boxes: [box(60, 0, 8, 8), box(165, -5, 17, 17), box(270, 4, 10, 35)] },
+    { id: 'slalom', group: 'Trasee', name: 'Slalom: patru cutii alternate stânga și dreapta', route: 450, wallLeft: false, boxes: [box(60, 9, 17, 17), box(170, -9, 17, 17), box(280, 9, 17, 17), box(390, -9, 17, 17)] },
+    { id: 'labirint', group: 'Trasee', name: 'Labirint răsfirat: patru obiecte diferite', route: 430, wallLeft: false, boxes: [box(60, 0, 17, 17), box(160, -6, 17, 17), box(260, 8, 14, 20), box(370, -2, 17, 17)] },
+    { id: 'doua', group: 'Trasee', name: 'Două cutii la 100 cm una de alta', route: 260, wallLeft: true, boxes: [box(60, 0, 17, 17), box(160, 3, 17, 17)] },
+    { id: 'mobil', group: 'Limite și obstacole mobile', name: 'Obstacol mobil care traversează traseul', route: 190, wallLeft: false, boxes: [{ cx: 110, cy: 30, dx: 17, dy: 17, vx: 0, vy: -5 }] },
+    { id: 'prea-lat', group: 'Limite și obstacole mobile', name: 'Limită: obiect de 60 cm lățime', route: 190, wallLeft: false, boxes: [box(60, 0, 17, 60)] },
+    { id: 'gol', group: 'Liber', name: 'Podea goală: îți faci tu traseul', route: 190, wallLeft: true, boxes: [] }
+  ];
+  function buildWorld(preset, opts) {
+    opts = opts || {};
+    var w = new World(), route = opts.route || preset.route, wl = opts.wallLeft !== undefined ? opts.wallLeft : preset.wallLeft;
+    w.arena = { x0: -30, x1: route + 60, y0: -90, y1: wl ? 30.5 : 90 };
+    (opts.boxes || preset.boxes).forEach(function (b) { w.add(JSON.parse(JSON.stringify(b))); });
+    return w;
+  }
+
+  root.NavSim = { PRESETS: PRESETS, buildWorld: buildWorld, FW: FW, ROBOT: ROBOT, PLANT: PLANT, World: World, Sim: Sim, Robot: Robot, robotPoly: robotPoly, obsRect: obsRect, polyDist: polyDist, rectPoly: rectPoly, DT: DT, D2R: D2R, R2D: R2D };
+  if (typeof module !== 'undefined' && module.exports) module.exports = root.NavSim;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+// User interface: map editor, live connection to the robot, log, export and calibration.
+(function () {
+  'use strict';
+  var N = window.NavSim;
+  function $(id) { return document.getElementById(id); }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function fmt(v, d) { return (typeof d === 'number' ? v.toFixed(d) : String(v)).replace('.', ','); }
+
+  var canvas = $('floor'), ctx = canvas.getContext('2d');
+  var preset = N.PRESETS[0], route = preset.route, wallLeft = preset.wallLeft;
+  var world = N.buildWorld(preset), initialObs = clone(world.obstacles);
+  var sim = null, running = false, speed = 2, tool = 'move';
+  var view = { sc: 1, ox: 0, oy: 0 }, cssW = 600, cssH = 300, dpr = 1, colors = {};
+  var drag = null, lastTel = 0, simStartedAt = null;
+
+  var sel = $('preset');
+
+  var SCEN_KEY = 'navcore.scenarii.v1', myScen = [];
+  try { myScen = JSON.parse(localStorage.getItem(SCEN_KEY) || '[]'); if (!Array.isArray(myScen)) myScen = []; } catch (err) { myScen = []; }
+  function saveMyScen() { try { localStorage.setItem(SCEN_KEY, JSON.stringify(myScen)); return true; } catch (err) { return false; } }
+  function findScen(id) { return myScen.filter(function (p) { return p.id === id; })[0] || N.PRESETS.filter(function (p) { return p.id === id; })[0] || null; }
+  function buildPresetSelect(selectedId) {
+    sel.innerHTML = '';
+    var groups = {};
+    function group(label) { if (!groups[label]) { var g = document.createElement('optgroup'); g.label = label; groups[label] = g; sel.appendChild(g); } return groups[label]; }
+    if (myScen.length) myScen.forEach(function (p) {
+      var o = document.createElement('option'); o.value = p.id; o.textContent = p.name + ' · ' + p.route + ' cm, ' + p.boxes.length + (p.boxes.length === 1 ? ' obiect' : ' obiecte');
+      group('Scenariile mele').appendChild(o);
+    });
+    N.PRESETS.forEach(function (p) {
+      var o = document.createElement('option'); o.value = p.id; o.textContent = p.name; group(p.group).appendChild(o);
+    });
+    if (selectedId) sel.value = selectedId;
+    var mine = /^my:/.test(sel.value);
+    $('btnUpdateScen').hidden = !mine; $('btnDelScen').hidden = !mine;
+  }
+  function currentBoxes() {
+    return clone(initialObs).map(function (o) { var b = { cx: o.cx, cy: o.cy, dx: o.dx, dy: o.dy }; if (o.vx || o.vy) { b.vx = o.vx; b.vy = o.vy; } return b; });
+  }
+  function scenMsg(t) { $('scenMsg').textContent = t; }
+  $('btnSaveScen').addEventListener('click', function () {
+    var nr = myScen.reduce(function (m, p) { return Math.max(m, p.nr || 0); }, 0) + 1;
+    var sc = { id: 'my:' + nr, nr: nr, name: 'Scenariu personalizat ' + nr, route: route, wallLeft: wallLeft, boxes: currentBoxes() };
+    myScen.push(sc);
+    var ok = saveMyScen();
+    preset = sc; buildPresetSelect(sc.id);
+    scenMsg(ok ? sc.name + ' a fost salvat.' : 'Nu am putut salva (browserul nu permite stocarea).');
+  });
+  $('btnUpdateScen').addEventListener('click', function () {
+    var sc = findScen(sel.value); if (!sc || !/^my:/.test(sc.id)) return;
+    sc.route = route; sc.wallLeft = wallLeft; sc.boxes = currentBoxes();
+    saveMyScen(); buildPresetSelect(sc.id); scenMsg(sc.name + ' a fost actualizat.');
+  });
+  $('btnDelScen').addEventListener('click', function () {
+    var id = sel.value, sc = findScen(id); if (!sc || !/^my:/.test(id)) return;
+    if (!confirm('Ștergi ' + sc.name + '?')) return;
+    myScen = myScen.filter(function (p) { return p.id !== id; }); saveMyScen();
+    buildPresetSelect(); loadPreset(sel.value); scenMsg(sc.name + ' a fost șters.');
+  });
+  buildPresetSelect();
+
+  function applyArena() {
+    world.arena = { x0: -30, x1: route + 60, y0: -90, y1: wallLeft ? 30.5 : 90 };
+  }
+  function newSim() {
+    N.FW.routeLength = route;
+    sim = new N.Sim({ world: world, noise: $('noise').checked, seed: 1 + Math.floor(Math.random() * 1e6), onLog: onLog });
+  }
+  function loadPreset(id) {
+    preset = findScen(id) || N.PRESETS[0];
+    buildPresetSelect(preset.id); scenMsg('');
+    route = preset.route; wallLeft = preset.wallLeft;
+    $('route').value = route; $('routeRange').value = route; $('wallLeft').checked = wallLeft;
+    world = N.buildWorld(preset); initialObs = clone(world.obstacles); selId = null;
+    running = false; newSim(); updateButtons(); renderList(); fillSel(); resize();
+  }
+  function resetRun() {
+    world.obstacles = clone(initialObs);
+    applyArena();
+    running = false; newSim(); updateButtons(); renderList(); updateTelemetry(true);
+  }
+  function syncInitial() { if (sim && sim.t === 0) initialObs = clone(world.obstacles); }
+
+  sel.addEventListener('change', function () { loadPreset(sel.value); });
+  $('btnLoad').addEventListener('click', function () { loadPreset(sel.value); });
+
+  function setRoute(v, final) {
+    route = Math.max(100, Math.min(600, Math.round((parseFloat(v) || 190) / 5) * 5));
+    $('route').value = route; $('routeRange').value = route;
+    if (final) {
+      applyArena(); resize();
+      if (!(live.on && live.last && live.last.run)) { running = false; newSim(); updateButtons(); updateTelemetry(true); }
+    }
+  }
+  $('route').addEventListener('change', function () { setRoute($('route').value, true); });
+  $('routeRange').addEventListener('input', function () { setRoute($('routeRange').value, false); });
+  $('routeRange').addEventListener('change', function () { setRoute($('routeRange').value, true); });
+  $('wallLeft').addEventListener('change', function () {
+    wallLeft = $('wallLeft').checked; applyArena(); world.obstacles.forEach(clampObs); syncInitial(); resize(); renderList();
+  });
+  $('btnReset').addEventListener('click', function () {
+    if (live.on) {
+
+      var stop = live.last && live.last.run
+        ? liveFetch('/api/cmd?c=stop').then(function () { return new Promise(function (r) { setTimeout(r, 1000); }); })
+        : Promise.resolve();
+      stop.then(function () { return liveFetch('/api/cmd?c=reset'); })
+        .then(function (j) { if (j && !j.ok) liveLog(j.msg); }, function () { liveLog('comanda nu a ajuns la robot'); });
+      live.trail = []; live.obs = []; live.t0 = null;
+    }
+    resetRun();
+  });
+  $('btnClearLog').addEventListener('click', function () { logStore = []; logSave(); logEmpty(); });
+  $('noise').addEventListener('change', function () { sim.noise = $('noise').checked; });
+
+  function updateButtons() {
+    var b = $('btnRun');
+    if (live && live.on) {
+      var ok = !!live.last && live.fails < 4, run = ok && !!live.last.run;
+      b.textContent = run ? 'Oprește' : 'Pornește';
+      b.className = run ? 'danger' : 'primary';
+      b.disabled = !ok;
+      $('btnStep').disabled = true;
+      return;
+    }
+    b.className = 'primary'; b.disabled = false; $('btnStep').disabled = false;
+    b.textContent = running ? 'Pauză' : (sim && sim.finished() ? 'Din nou' : 'Pornește');
+  }
+  $('btnRun').addEventListener('click', function () {
+    if (live.on) {
+      if (live.last && live.last.run) {
+        liveFetch('/api/cmd?c=stop').then(function () {}, function () { liveLog('comanda nu a ajuns la robot'); });
+      } else {
+        liveFetch('/api/cmd?c=start&route=' + Math.round(route)).then(function (j) { if (!j.ok) liveLog(j.msg); }, function () { liveLog('comanda nu a ajuns la robot'); });
+      }
+      return;
+    }
+    if (sim.finished()) resetRun();
+    if (!running && sim.t === 0) { logSeparator('Cursă nouă în simulator'); simStartedAt = new Date(); }
+    running = !running; updateButtons();
+  });
+  $('btnStep').addEventListener('click', function () {
+    running = false; updateButtons();
+    for (var i = 0; i < 25 && !sim.finished(); i++) sim.step();
+    updateTelemetry(true);
+  });
+  $('speed').addEventListener('change', function () { speed = parseFloat($('speed').value); });
+
+  var live = { on: false, base: '', last: null, prevRun: 0, since: 0, trail: [], obs: [], busy: false, fails: 0, mode: 'mirror', diffMax: 0 };
+  var RMODES = { IDLE: 'În așteptare', DRIVE: 'Merge pe traseu', CHOOSE: 'Alege partea', OUT: 'Ocolește (arc și trecere)', RET: 'Revine pe arc', ALIGN: 'Se aliniază', BACK: 'Se retrage (obstacol nou)', CALIB: 'Calibrează gyro-ul (nu-l mișca)', ARRIVED: 'Ajuns la B', FAILED: 'Oprit de siguranță', STOPPED: 'Oprit de la distanță' };
+  var secure = location.protocol === 'https:';
+  var fromRobot = location.protocol === 'http:' && location.hostname !== '' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+  var served = location.protocol === 'http:';
+
+  function setLiveStatus(state, text) { $('liveDot').setAttribute('data-s', state); $('liveText').textContent = text; }
+  function liveBaseUrl() {
+    var a = $('liveAddr').value.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    if (!a) return served ? '' : null;
+    return 'http://' + a;
+  }
+  (function initLiveUi() {
+    var notice = $('liveNotice');
+    if (secure) {
+      notice.hidden = false;
+      notice.textContent = 'Pagina asta e deschisă prin HTTPS, iar browserul nu permite conexiuni către robot din ea. Deschide aplicația de pe robot, la adresa http://navcore.local, ca să te conectezi.';
+      $('btnLive').disabled = true; $('liveAddr').disabled = true;
+    } else if (fromRobot || served) {
+      $('liveAddr').value = '';
+      $('liveAddr').placeholder = 'gol = robotul care a servit pagina';
+    } else {
+      $('liveAddr').value = 'navcore.local';
+    }
+  })();
+
+  function liveFetch(path, ms) {
+    var ctl = new AbortController(), to = setTimeout(function () { ctl.abort(); }, ms || 1200);
+    return fetch(live.base + path, { signal: ctl.signal, cache: 'no-store' }).then(function (r) { clearTimeout(to); return r.json(); }, function (e) { clearTimeout(to); throw e; });
+  }
+  // Ask the robot for its state every 100 ms.
+  function livePoll() {
+    if (!live.on || live.busy) return;
+    live.busy = true;
+    liveFetch('/api/state?since=' + live.since + (live.psince != null ? '&ps=' + live.psince : '')).then(onLiveState, onLiveFail).then(function () { live.busy = false; }, function () { live.busy = false; });
+  }
+  setInterval(livePoll, 100);
+
+  function onLiveFail() {
+    live.fails++;
+    if (live.fails >= 4) { setLiveStatus('off', 'Conexiune pierdută, reîncerc…'); updateButtons(); }
+  }
+  function onLiveState(d) {
+    var wasFail = live.fails >= 4; live.fails = 0;
+    live.last = d;
+    setLiveStatus('on', 'Conectat' + (d.rs ? ', semnal ' + d.rs + ' dBm' : ''));
+
+    if (d.run && !live.prevRun) {
+      if (Math.abs(d.rt - route) > 0.5) { route = d.rt; $('route').value = route; $('routeRange').value = route; applyArena(); resize(); }
+      resetRun();
+      logSeparator('Cursă nouă pe robotul real');
+      live.trail = []; live.obs = []; live.t0 = d.t; live.startedAt = new Date();
+    }
+    if (d.fx > -900 && d.ox > -900 && d.av > 0) {
+      var prev = live.obs[d.av];
+
+      var same = prev && Math.abs(prev.ox - d.ox) < 0.5 && Math.abs(prev.oy - d.oy) < 0.5;
+      var ob = live.obs[d.av] = { ox: d.ox, oy: d.oy, fx: d.fx, ey: d.ey, bx: d.bx, sd: d.sd || 1, dp: d.dp || 20,
+                                  surprise: same ? prev.surprise : false, dup: same ? prev.dup : false, logged: same ? prev.logged : false };
+      if (!same) {
+        var rNew = liveObsRect(ob), cx = (rNew.x0 + rNew.x1) / 2, cy = (rNew.y0 + rNew.y1) / 2;
+        ob.surprise = !matchesPlanned(rNew);
+
+        live.obs.forEach(function (o2, k) {
+          if (!o2 || k === d.av || o2.dup || ob.dup) return;
+          var q = liveObsRect(o2);
+          if (Math.abs((q.x0 + q.x1) / 2 - cx) < 12 && Math.abs((q.y0 + q.y1) / 2 - cy) < 12) {
+            ob.dup = true;
+            if (ob.surprise && !o2.surprise) o2.surprise = true;
+          }
+        });
+      }
+      if (ob.surprise && !ob.dup && !ob.logged) {
+        ob.logged = true;
+        liveLog('obstacol neprevăzut la x ≈ ' + fmt(ob.ox + ob.fx, 0) + ' cm (nu e pe hartă), îl ocolesc');
+      }
+    }
+
+    if (!d.run && live.prevRun && d.m !== 'IDLE') live.calX = d.x;
+    showCalib(d);
+    live.prevRun = d.run;
+    (d.ev || []).forEach(function (e) { if (e[0] > live.since) liveLog(e[1]); });
+    live.since = d.es;
+
+    if (d.ps != null) {
+      if (live.psince != null) (d.p || []).forEach(function (q) { live.trail.push([q[0], -q[1]]); if (live.trail.length > 4000) live.trail.shift(); });
+      live.psince = d.ps;
+    }
+    if (d.run) live.tEnd = d.t;
+    updateButtons();
+    if (wasFail) liveLog('conexiunea a revenit');
+  }
+
+  function liveObsRect(b) {
+    var x0 = b.ox + b.fx, x1 = b.bx > -900 ? b.ox + b.bx : x0 + b.dp;
+    var half = b.ey > -900 ? Math.max(4, b.ey) : 8;
+    var ya = -(b.oy - b.sd * half), yb = -(b.oy + b.sd * half);
+    return { x0: x0, x1: Math.max(x1, x0 + 2), y0: Math.min(ya, yb), y1: Math.max(ya, yb) };
+  }
+
+  function matchedPlanned(r) {
+    var mx = 25, my = 10;
+    for (var i = 0; i < world.obstacles.length; i++) {
+      var q = N.obsRect(world.obstacles[i]);
+      if (r.x0 < q.x1 + mx && r.x1 > q.x0 - mx && r.y0 < q.y1 + my && r.y1 > q.y0 - my) return world.obstacles[i];
+    }
+    return null;
+  }
+  function matchesPlanned(r) { return !!matchedPlanned(r); }
+  function liveLog(m) { onLog(live.last && live.t0 != null ? (live.last.t - live.t0) / 1000 : 0, 'Robot: ' + m, 'robot'); }
+
+  function liveConnect() {
+    var b = liveBaseUrl();
+    if (b === null) { setLiveStatus('off', 'Scrie adresa robotului'); return; }
+    live.base = b; live.on = true; live.fails = 0; live.last = null; live.since = 0; live.psince = null; live.trail = []; live.obs = []; live.prevRun = 0; live.t0 = null;
+    $('btnLive').textContent = 'Deconectează'; setLiveStatus('wait', 'Se conectează…');
+    running = false; resetRun();
+  }
+  function liveDisconnect() {
+    live.on = false; live.last = null; $('btnLive').textContent = 'Conectează'; setLiveStatus('', 'Neconectat');
+    $('rRssi').textContent = '—';
+    resetRun();
+  }
+  $('btnLive').addEventListener('click', function () { if (live.on) liveDisconnect(); else liveConnect(); });
+
+  function updateLiveTelemetry() {
+    var d = live.last; if (!live.on) return;
+    if (!d) return;
+    function sv(v) { return v < 0 || v >= 8000 ? '—' : String(v); }
+    $('rRssi').textContent = d.rs ? d.rs + ' dBm' : '—';
+
+    var prog = d.m === 'ARRIVED' ? d.rt : Math.max(0, Math.min(d.rt, d.x));
+    $('vMode').textContent = RMODES[d.m] || d.m;
+    $('vProg').textContent = fmt(prog, 0) + ' cm';
+    $('barFill').style.width = Math.max(0, Math.min(100, prog / d.rt * 100)) + '%';
+    $('barText').textContent = fmt(prog, 0) + ' / ' + fmt(d.rt, 0) + ' cm';
+    $('vAvoid').textContent = String(d.av);
+    $('vPos').textContent = fmt(d.x, 0) + ', ' + fmt(-d.y, 1) + ' cm';
+    $('vAng').textContent = fmt(d.th, 1) + '°';
+    $('vSens').textContent = sv(d.f) + ' / ' + sv(d.l) + ' / ' + sv(d.r) + ' mm';
+    $('vEst').textContent = d.ox > -900 ? fmt(d.x - d.ox, 1) + ', ' + fmt(Math.abs(d.y - d.oy), 1) + ' cm' : '—';
+    $('vMin').textContent = '—'; $('vHit').textContent = '—'; $('vHit').className = '';
+    var tEnd = d.run ? d.t : (live.tEnd || d.t);
+    $('clock').textContent = fmt(live.t0 != null ? Math.max(0, tEnd - live.t0) / 1000 : 0, 1) + ' s';
+    var chip = $('chip');
+    if (live.fails >= 4) { chip.textContent = 'Robot deconectat'; chip.setAttribute('data-tone', 'bad'); }
+    else if (d.m === 'ARRIVED') { chip.textContent = 'Ajuns la B'; chip.setAttribute('data-tone', 'ok'); }
+    else if (d.m === 'FAILED' || d.m === 'STOPPED') { chip.textContent = RMODES[d.m]; chip.setAttribute('data-tone', 'bad'); }
+    else if (d.run) { chip.textContent = 'Robotul rulează'; chip.setAttribute('data-tone', 'run'); }
+    else { chip.textContent = 'Robot conectat'; chip.setAttribute('data-tone', ''); }
+  }
+
+  var KEYS = /OBSTACOL CONFIRMAT|OCOLIRE TERMINATA|MARGINE GASITA|destinatia B|TRECERE TERMINATA|REVENIRE TERMINATA/;
+  var WARN = /CONTACT|OPRIRE DE SIGURANTA|EROARE|PREA MULTE|BLOCATE/;
+
+  var LOG_KEY = 'navcore.jurnal.v1', LOG_MAX = 600, logStore = [], logSaveTimer = null;
+  function logRow(e) {
+    var d = document.createElement('div');
+    if (e.c === 'sepLine') { d.className = 'sepLine'; d.textContent = e.m; return d; }
+    d.className = e.c || (WARN.test(e.m) ? 'warn' : (KEYS.test(e.m) ? 'key' : ''));
+    var ts = document.createElement('span'); ts.className = 't'; ts.textContent = fmt(e.t, 1) + ' s';
+    d.appendChild(ts); d.appendChild(document.createTextNode(e.m));
+    return d;
+  }
+  function logEmpty() { $('log').innerHTML = '<span class="empty">Jurnalul e gol. Apasă Pornește ca să vezi mesajele robotului.</span>'; }
+  function logPush(e) {
+    var box = $('log');
+    if (!logStore.length) box.innerHTML = '';
+    logStore.push(e);
+    box.appendChild(logRow(e));
+    while (logStore.length > LOG_MAX) { logStore.shift(); if (box.firstChild) box.removeChild(box.firstChild); }
+    box.scrollTop = box.scrollHeight;
+    if (!logSaveTimer) logSaveTimer = setTimeout(logSave, 400);
+  }
+  function logSave() {
+    logSaveTimer = null;
+    try { localStorage.setItem(LOG_KEY, JSON.stringify(logStore)); } catch (err) {   }
+  }
+  function onLog(t, m, cls) { logPush({ t: t, m: m, c: cls || '' }); }
+
+  function downloadText(name, text, type) {
+    var blob = new Blob([text], { type: type }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function stamp(d) {
+    function p2(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + '-' + p2(d.getMinutes()) + '-' + p2(d.getSeconds());
+  }
+
+  function lastRunEvents() {
+    var k = -1, i;
+    for (i = logStore.length - 1; i >= 0; i--) if (logStore[i].c === 'sepLine') { k = i; break; }
+    return logStore.slice(k + 1).filter(function (e) { return e.c !== 'sepLine'; })
+      .map(function (e) { return { t: Math.round(e.t * 10) / 10, text: e.m }; });
+  }
+  function r1(v) { return Math.round(v * 10) / 10; }
+
+  function collectRun() {
+    var fromRobot = !!(live.on && live.last), out = {
+      format: 'navcore-run/1',
+      exportedAt: new Date().toISOString(),
+      source: fromRobot ? 'robot' : 'simulator',
+      routeCm: route,
+      mapObjects: world.obstacles.map(function (o) {
+        var m = { faceXcm: r1(o.cx - o.dx / 2), centerYcm: r1(-o.cy), widthCm: r1(o.dy), depthCm: r1(o.dx) };
+        if (o.vx || o.vy) m.moving = true;
+        return m;
+      })
+    };
+    if (fromRobot) {
+      var d = live.last;
+      out.robotAddress = live.base || location.host;
+      out.startedAt = live.startedAt ? live.startedAt.toISOString() : null;
+      out.durationS = live.t0 != null ? r1(((d.run ? d.t : (live.tEnd || d.t)) - live.t0) / 1000) : null;
+      out.final = { state: d.m, xCm: r1(d.x), yCm: r1(d.y), angleDeg: r1(d.th), avoidances: d.av,
+                    sensorsMm: { front: d.f, left: d.l, right: d.r } };
+      out.trail = live.trail.map(function (q) { return [r1(q[0]), r1(-q[1])]; });
+      out.obstacles = [];
+      live.obs.forEach(function (b, k) {
+        if (!b || b.dup) return;
+        var r = liveObsRect(b);
+        out.obstacles.push({ avoidance: k, unexpected: !!b.surprise, startXcm: r1(b.ox), startYcm: r1(b.oy),
+          side: b.sd > 0 ? 'right' : 'left', faceXcm: r1(b.ox + b.fx),
+          edgeYcm: b.ey > -900 ? r1(b.ey) : null, rearXcm: b.bx > -900 ? r1(b.ox + b.bx) : null,
+          estimatedBox: { x0: r1(r.x0), x1: r1(r.x1), y0: r1(-r.y1), y1: r1(-r.y0) } });
+      });
+    } else {
+      var rb = sim.robot;
+      out.startedAt = simStartedAt ? simStartedAt.toISOString() : null;
+      out.durationS = r1(sim.t);
+      out.final = { state: sim.nav.mode, xCm: r1(rb.x), yCm: r1(-rb.y), angleDeg: r1(-rb.th * N.R2D),
+                    avoidances: sim.nav.avoidances, contacts: sim.collisions };
+      out.trail = sim.trail.map(function (q) { return [r1(q[0]), r1(-q[1])]; });
+    }
+    out.events = lastRunEvents();
+    return out;
+  }
+  function runFileName(ext, data) {
+    var t = data.startedAt ? new Date(data.startedAt) : new Date();
+    return 'navcore_' + data.source + '_' + stamp(t) + '.' + ext;
+  }
+  $('btnExportRun').addEventListener('click', function () {
+    var data = collectRun();
+    downloadText(runFileName('json', data), JSON.stringify(data, null, 2), 'application/json');
+  });
+  $('btnExportCsv').addEventListener('click', function () {
+    var data = collectRun(), lines = ['x_cm,y_cm'];
+    data.trail.forEach(function (q) { lines.push(q[0] + ',' + q[1]); });
+    downloadText(runFileName('csv', data), lines.join('\n') + '\n', 'text/csv');
+  });
+
+  function showCalib(d) {
+    if (d.cp == null) { $('calNow').textContent = 'firmware fără calibrare (actualizează-l)'; return; }
+    $('calNow').textContent = fmt(d.cp, 4) + ' impulsuri/cm · scala giroscop ' + fmt(d.cg, 4);
+    if (live.calX != null) $('calRobotX').textContent = fmt(live.calX, 1) + ' cm';
+    if (d.tt > 0) $('calGyroDeg').textContent = fmt(d.tt, 1) + '°';
+  }
+  function calibReady() {
+    var msg = $('calMsg');
+    if (!live.on || !live.last || live.fails >= 4) { msg.textContent = 'Conectează-te întâi la robot.'; return false; }
+    if (live.last.cp == null) { msg.textContent = 'Firmware-ul din robot nu are calibrare: încarcă versiunea nouă.'; return false; }
+    if (live.last.run) { msg.textContent = 'Așteaptă să se oprească robotul.'; return false; }
+    return true;
+  }
+  function calibSend(query, okText) {
+    liveFetch('/api/cmd?c=' + query).then(function (j) {
+      $('calMsg').textContent = j.ok ? okText : 'Robotul a refuzat: ' + j.msg + '.';
+      if (j.ok) liveLog(okText);
+    }, function () { $('calMsg').textContent = 'Comanda nu a ajuns la robot.'; });
+  }
+  $('btnCalDist').addEventListener('click', function () {
+    if (!calibReady()) return;
+    var real = parseFloat($('calRealCm').value), d = live.last;
+    if (live.calX == null || live.calX < 50) { $('calMsg').textContent = 'Fă întâi o cursă de 200 cm fără obstacole.'; return; }
+    if (!(real >= 50)) { $('calMsg').textContent = 'Scrie distanța reală măsurată, în cm.'; return; }
+    var ppcm = d.cp * live.calX / real;
+    if (Math.abs(ppcm / d.cp - 1) > 0.2) { $('calMsg').textContent = 'Diferență de peste 20%: verifică măsurătoarea.'; return; }
+    calibSend('calib&ppcm=' + ppcm.toFixed(4) + '&gs=' + d.cg.toFixed(4),
+              'calibrare distanță: ' + fmt(d.cp, 4) + ' → ' + fmt(ppcm, 4) + ' impulsuri/cm');
+  });
+  $('btnCalTurn').addEventListener('click', function () {
+    if (!calibReady()) return;
+    $('calMsg').textContent = 'Nu atinge robotul: calibrare giroscop, apoi o tură completă…';
+    liveFetch('/api/cmd?c=turn').then(function (j) { if (!j.ok) $('calMsg').textContent = 'Robotul a refuzat: ' + j.msg + '.'; },
+                                      function () { $('calMsg').textContent = 'Comanda nu a ajuns la robot.'; });
+  });
+  $('btnCalTurnSave').addEventListener('click', function () {
+    if (!calibReady()) return;
+    var real = parseFloat($('calRealDeg').value), d = live.last;
+    if (!(d.tt > 0)) { $('calMsg').textContent = 'Fă întâi testul de rotire.'; return; }
+    if (!(real >= 300 && real <= 420)) { $('calMsg').textContent = 'Scrie rotirea reală, între 300 și 420 de grade.'; return; }
+    var gs = d.cg * real / d.tt;
+    calibSend('calib&ppcm=' + d.cp.toFixed(4) + '&gs=' + gs.toFixed(4),
+              'calibrare giroscop: scala ' + fmt(d.cg, 4) + ' → ' + fmt(gs, 4));
+  });
+  $('btnCalReset').addEventListener('click', function () {
+    if (!calibReady()) return;
+    if (!confirm('Pui la loc valorile inițiale ale calibrării?')) return;
+    calibSend('calibreset', 'calibrare: valorile inițiale puse la loc');
+  });
+
+  $('btnFw').addEventListener('click', function () {
+    var file = $('fwFile').files[0], msg = $('fwMsg');
+    if (!live.on || !live.last || live.fails >= 4) { msg.textContent = 'Conectează-te întâi la robot.'; return; }
+    if (live.last.run) { msg.textContent = 'Oprește robotul înainte de actualizare.'; return; }
+    if (!file) { msg.textContent = 'Alege fișierul .bin.'; return; }
+    if (!/\.bin$/i.test(file.name)) { msg.textContent = 'Fișierul trebuie să fie .bin (exportat din Arduino IDE).'; return; }
+    var xhr = new XMLHttpRequest(), form = new FormData();
+    form.append('firmware', file, file.name);
+    xhr.open('POST', live.base + '/api/update?key=' + encodeURIComponent($('fwKey').value));
+    xhr.timeout = 120000;
+    $('btnFw').disabled = true; $('fwBar').style.width = '0';
+    msg.textContent = 'Se încarcă ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)…';
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable) $('fwBar').style.width = Math.round(e.loaded / e.total * 100) + '%';
+    };
+    xhr.onload = function () {
+      $('btnFw').disabled = false;
+      var j = null;
+      try { j = JSON.parse(xhr.responseText); } catch (err) {   }
+      if (j && j.ok) {
+        $('fwBar').style.width = '100%';
+        msg.textContent = 'Gata: robotul repornește cu firmware-ul nou. Conexiunea revine singură în câteva secunde.';
+        liveLog('firmware actualizat prin Wi-Fi: ' + file.name);
+      } else {
+        msg.textContent = 'Actualizarea nu a reușit: ' + (j ? j.msg : 'răspuns neașteptat de la robot') + '.';
+      }
+    };
+    xhr.onerror = xhr.ontimeout = function () { $('btnFw').disabled = false; msg.textContent = 'Fișierul nu a ajuns la robot (conexiune întreruptă).'; };
+    xhr.send(form);
+  });
+
+  function logSeparator(title) {
+    var now = new Date();
+    logPush({ t: 0, m: title + ' · ' + now.toLocaleDateString('ro-RO') + ' ' + now.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }), c: 'sepLine' });
+  }
+  (function logRestore() {
+    try { var a = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); if (Array.isArray(a)) logStore = a.slice(-LOG_MAX); } catch (err) { logStore = []; }
+    if (!logStore.length) { logEmpty(); return; }
+    var box = $('log'); box.innerHTML = '';
+    logStore.forEach(function (e) { box.appendChild(logRow(e)); });
+    box.scrollTop = box.scrollHeight;
+  })();
+
+  var selId = null, drawing = null;
+  function byId(id) { var i; for (i = 0; i < world.obstacles.length; i++) if (world.obstacles[i].id === id) return world.obstacles[i]; return null; }
+  function clampObs(o) {
+    var ar = world.arena;
+    o.dx = Math.max(4, Math.min(80, o.dx)); o.dy = Math.max(4, Math.min(80, o.dy));
+    o.cx = Math.max(ar.x0 + o.dx / 2, Math.min(ar.x1 - o.dx / 2, o.cx));
+    o.cy = Math.max(ar.y0 + o.dy / 2, Math.min(ar.y1 - o.dy / 2, o.cy));
+  }
+  function select(id) { selId = id; renderList(); fillSel(); }
+  function fillSel() {
+    var o = selId === null ? null : byId(selId), p = $('selPanel');
+    if (!o) { selId = null; p.hidden = true; return; }
+    p.hidden = false;
+    $('selTitle').textContent = (o.kind === 'mobil' ? 'Obiect mobil' : 'Obiect') + ' ' + (world.obstacles.indexOf(o) + 1);
+    $('selW').value = Math.round(o.dy); $('selD').value = Math.round(o.dx);
+    $('selX').value = Math.round(o.cx - o.dx / 2); $('selY').value = Math.round(o.cy);
+  }
+  function applySel() {
+    var o = byId(selId); if (!o) return;
+    var w = parseFloat($('selW').value), d = parseFloat($('selD').value), x = parseFloat($('selX').value), y = parseFloat($('selY').value);
+    if (isFinite(w)) o.dy = w; if (isFinite(d)) o.dx = d;
+    if (isFinite(x)) o.cx = x + o.dx / 2; if (isFinite(y)) o.cy = y;
+    clampObs(o); syncInitial(); renderList();
+  }
+  ['selW', 'selD', 'selX', 'selY'].forEach(function (id) { $(id).addEventListener('change', function () { applySel(); fillSel(); }); });
+  function removeObs(id) { world.remove(id); if (selId === id) selId = null; syncInitial(); renderList(); fillSel(); }
+  $('selDel').addEventListener('click', function () { if (selId !== null) removeObs(selId); });
+  $('btnClearObs').addEventListener('click', function () { world.obstacles = []; selId = null; syncInitial(); renderList(); fillSel(); });
+  document.addEventListener('keydown', function (ev) {
+    var tg = ev.target && ev.target.tagName;
+    if ((ev.key === 'Delete' || ev.key === 'Backspace') && selId !== null && tg !== 'INPUT' && tg !== 'TEXTAREA' && tg !== 'SELECT') { ev.preventDefault(); removeObs(selId); }
+  });
+
+  function renderList() {
+    var ul = $('obsList'); ul.innerHTML = '';
+    if (!world.obstacles.length) { var e = document.createElement('li'); e.innerHTML = '<span class="empty">Niciun obiect. Apasă pe hartă sau alege unul de mai sus.</span>'; ul.appendChild(e); return; }
+    world.obstacles.forEach(function (o, i) {
+      var li = document.createElement('li');
+      var pk = document.createElement('button'); pk.className = 'pick';
+      pk.setAttribute('aria-pressed', o.id === selId ? 'true' : 'false');
+      pk.textContent = (o.kind === 'mobil' ? 'Mobil ' : 'Obiect ') + (i + 1) + ' · ' + fmt(o.dy, 0) + ' × ' + fmt(o.dx, 0) + ' cm · x ' + fmt(o.cx - o.dx / 2, 0) + ', y ' + fmt(o.cy, 0);
+      pk.addEventListener('click', function () { select(o.id); });
+      var b = document.createElement('button'); b.className = 'x'; b.textContent = '×';
+      b.setAttribute('aria-label', 'Șterge obiectul ' + (i + 1));
+      b.addEventListener('click', function () { removeObs(o.id); });
+      li.appendChild(pk); li.appendChild(b); ul.appendChild(li);
+    });
+  }
+
+  $('btnExport').addEventListener('click', function () {
+    var data = { traseu: route, perete_stanga: wallLeft, obiecte: world.obstacles.map(function (o) {
+      var r = { x: +(o.cx - o.dx / 2).toFixed(1), y: +o.cy.toFixed(1), latime: +o.dy.toFixed(1), adancime: +o.dx.toFixed(1) };
+      if (o.vx || o.vy) { r.vx = o.vx; r.vy = o.vy; } return r; }) };
+    $('saveText').value = JSON.stringify(data); $('saveMsg').textContent = 'Copiază textul de mai sus ca să-l păstrezi.';
+  });
+  $('btnImport').addEventListener('click', function () {
+    try {
+      var d = JSON.parse($('saveText').value), list = [];
+      if (!d || !Array.isArray(d.obiecte)) throw new Error('lipsește lista de obiecte');
+      d.obiecte.forEach(function (r) {
+        var w = +r.latime, dd = +r.adancime, x = +r.x, y = +r.y;
+        if (![w, dd, x, y].every(isFinite)) throw new Error('valori greșite la un obiect');
+        var o = { cx: x + dd / 2, cy: y, dx: dd, dy: w }; if (r.vx || r.vy) { o.vx = +r.vx || 0; o.vy = +r.vy || 0; }
+        list.push(o);
+      });
+      route = Math.max(100, Math.min(600, +d.traseu || route)); wallLeft = !!d.perete_stanga;
+      $('route').value = route; $('routeRange').value = route; $('wallLeft').checked = wallLeft;
+      world = new N.World(); applyArena();
+      list.forEach(function (o) { clampObs(o); world.add(o); });
+      initialObs = clone(world.obstacles); selId = null; running = false; newSim(); updateButtons(); renderList(); fillSel(); resize();
+      $('saveMsg').textContent = 'Traseul a fost încărcat.';
+    } catch (e) { $('saveMsg').textContent = 'Nu am putut încărca textul: ' + e.message + '.'; }
+  });
+
+  function toWorld(ev) {
+    var r = canvas.getBoundingClientRect();
+    var px = (ev.clientX - r.left) * (cssW / r.width), py = (ev.clientY - r.top) * (cssH / r.height);
+    return { x: (px - view.ox) / view.sc, y: (view.oy - py) / view.sc };
+  }
+  function hitObstacle(p) {
+    var i, o;
+    for (i = world.obstacles.length - 1; i >= 0; i--) {
+      o = world.obstacles[i];
+      if (Math.abs(p.x - o.cx) <= o.dx / 2 + 1.5 && Math.abs(p.y - o.cy) <= o.dy / 2 + 1.5) return o;
+    }
+    return null;
+  }
+  function snap(v) { return Math.round(v); }
+
+  var PALETTE = [
+    { name: 'Mic', w: 8, d: 8 },
+    { name: 'Mediu', w: 17, d: 17 },
+    { name: 'Mare', w: 30, d: 30 },
+    { name: 'Lat', w: 35, d: 10 },
+    { name: 'Lung', w: 10, d: 35 },
+    { name: 'Mobil', w: 12, d: 12, mobile: true }
+  ];
+  function customSpec() {
+    return { name: 'Personalizat', w: Math.max(4, Math.min(80, parseFloat($('newDy').value) || 17)), d: Math.max(4, Math.min(80, parseFloat($('newDx').value) || 17)) };
+  }
+
+  function specSvg(sp) {
+    var k = 34 / 35, w = Math.max(5, sp.d * k), h = Math.max(5, sp.w * k);
+    var arrow = sp.mobile ? '<path d="M20 4 L24 9 L16 9 Z" fill="var(--box-edge)"/>' : '';
+    return '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="' + (20 - w / 2) + '" y="' + (20 - h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="1.5" fill="var(--box)" stroke="var(--box-edge)" stroke-width="1.5"/>' + arrow + '</svg>';
+  }
+  function addObject(sp, x, y) {
+    var nb = { cx: snap(x), cy: snap(y), dx: sp.d, dy: sp.w };
+    if (sp.mobile) { nb.vx = 0; nb.vy = y > 0 ? -6 : 6; }
+    clampObs(nb); var added = world.add(nb); syncInitial(); select(added.id);
+    return added;
+  }
+
+  function addObjectOnRoute(sp) {
+    var x = 60;
+    world.obstacles.forEach(function (o) { if (Math.abs(o.cy) < 30) x = Math.max(x, o.cx + o.dx / 2 + 40 + sp.d / 2); });
+    if (x > route - 20) x = 60;
+    addObject(sp, x, 0);
+  }
+
+  var ghost = null, pdrag = null;
+  function canvasPointAt(cx, cy) {
+    var r = canvas.getBoundingClientRect();
+    if (cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) return null;
+    return toWorld({ clientX: cx, clientY: cy });
+  }
+  function bindTile(el, getSpec) {
+    el.addEventListener('pointerdown', function (ev) {
+      pdrag = { getSpec: getSpec, x0: ev.clientX, y0: ev.clientY, moved: false };
+      try { el.setPointerCapture(ev.pointerId); } catch (err) {   }
+    });
+    el.addEventListener('pointermove', function (ev) {
+      if (!pdrag) return;
+      if (!pdrag.moved && Math.abs(ev.clientX - pdrag.x0) + Math.abs(ev.clientY - pdrag.y0) > 6) {
+        pdrag.moved = true; closePop();
+        var sp = pdrag.getSpec();
+        ghost = document.createElement('div'); ghost.className = 'ghost';
+        ghost.style.width = Math.max(8, sp.d * view.sc) + 'px'; ghost.style.height = Math.max(8, sp.w * view.sc) + 'px';
+        document.body.appendChild(ghost);
+      }
+      if (ghost) { ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px'; }
+    });
+    function finish(ev, cancel) {
+      if (!pdrag) return;
+      var sp = pdrag.getSpec();
+      if (ghost) { ghost.remove(); ghost = null; }
+      if (!cancel) {
+        if (pdrag.moved) { var p = canvasPointAt(ev.clientX, ev.clientY); if (p) addObject(sp, p.x, p.y); }
+        else addObjectOnRoute(sp);
+      }
+      pdrag = null;
+    }
+    el.addEventListener('pointerup', function (ev) { finish(ev, false); });
+    el.addEventListener('pointercancel', function (ev) { finish(ev, true); });
+    el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); addObjectOnRoute(getSpec()); } });
+  }
+  (function buildPalette() {
+    var box = $('palette');
+    PALETTE.forEach(function (sp) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'tile';
+      b.innerHTML = specSvg(sp) + '<span>' + sp.name + '</span><small>' + sp.w + ' × ' + sp.d + '</small>';
+      b.setAttribute('aria-label', 'Adaugă obiect ' + sp.name + ', ' + sp.w + ' pe ' + sp.d + ' cm');
+      bindTile(b, function () { return sp; });
+      box.appendChild(b);
+    });
+    bindTile($('btnCustom'), customSpec);
+  })();
+
+  var pop = $('pop');
+  function closePop() { pop.hidden = true; pop.innerHTML = ''; }
+  function placePop(ev) {
+    var wrap = $('canvasWrap'), r = wrap.getBoundingClientRect();
+    pop.hidden = false;
+    var x = ev.clientX - r.left + 10, y = ev.clientY - r.top + 10;
+    var pw = pop.offsetWidth, ph = pop.offsetHeight;
+    if (x + pw > r.width - 6) x = Math.max(6, ev.clientX - r.left - pw - 10);
+    if (y + ph > r.height - 6) y = Math.max(6, r.height - ph - 6);
+    pop.style.left = x + 'px'; pop.style.top = y + 'px';
+  }
+  function popHead(title) {
+    var h = document.createElement('h3'); h.textContent = title;
+    var x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Închide');
+    x.addEventListener('click', closePop); h.appendChild(x); return h;
+  }
+  function openAddPop(p, ev) {
+    pop.innerHTML = '';
+    pop.appendChild(popHead('Adaugă obiect aici'));
+    var g = document.createElement('div'); g.className = 'grid3';
+    PALETTE.concat([null]).forEach(function (sp) {
+      var b = document.createElement('button'); b.type = 'button';
+      var cs = customSpec();
+      b.innerHTML = '<span>' + (sp ? sp.name : 'Personalizat') + '</span><small>' + (sp ? sp.w + ' × ' + sp.d : cs.w + ' × ' + cs.d) + '</small>';
+      b.addEventListener('click', function () { addObject(sp || customSpec(), p.x, p.y); closePop(); });
+      g.appendChild(b);
+    });
+    pop.appendChild(g);
+    var h = document.createElement('p'); h.className = 'hint'; h.textContent = 'La x ' + fmt(snap(p.x), 0) + ', y ' + fmt(snap(p.y), 0) + ' cm';
+    pop.appendChild(h);
+    placePop(ev);
+  }
+  function openObjPop(o, ev) {
+    pop.innerHTML = '';
+    pop.appendChild(popHead((o.kind === 'mobil' ? 'Obiect mobil ' : 'Obiect ') + (world.obstacles.indexOf(o) + 1)));
+    var row = document.createElement('div'); row.className = 'row';
+    function num(label, val, onSet) {
+      var l = document.createElement('label'); l.className = 'field'; l.textContent = label;
+      var i = document.createElement('input'); i.type = 'number'; i.min = 4; i.max = 80; i.value = Math.round(val);
+      i.addEventListener('input', function () { var v = parseFloat(i.value); if (isFinite(v) && v >= 4) { onSet(v); clampObs(o); syncInitial(); renderList(); fillSel(); } });
+      l.appendChild(i); return l;
+    }
+    row.appendChild(num('Lățime', o.dy, function (v) { o.dy = v; }));
+    row.appendChild(num('Adâncime', o.dx, function (v) { o.dx = v; }));
+    pop.appendChild(row);
+    var act = document.createElement('div'); act.className = 'row';
+    var dup = document.createElement('button'); dup.type = 'button'; dup.className = 'quiet'; dup.textContent = 'Duplică';
+    dup.addEventListener('click', function () {
+      var c = { cx: o.cx, cy: o.cy - o.dy - 6, dx: o.dx, dy: o.dy };
+      if (o.vx || o.vy) { c.vx = o.vx; c.vy = o.vy; }
+      clampObs(c); var a = world.add(c); syncInitial(); select(a.id); closePop();
+    });
+    var del = document.createElement('button'); del.type = 'button'; del.className = 'ghostDanger'; del.textContent = 'Șterge';
+    del.addEventListener('click', function () { removeObs(o.id); closePop(); });
+    act.appendChild(dup); act.appendChild(del); pop.appendChild(act);
+    placePop(ev);
+  }
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closePop(); });
+  document.addEventListener('pointerdown', function (ev) { if (!pop.hidden && !pop.contains(ev.target) && ev.target !== canvas) closePop(); });
+
+  var press = null;
+  canvas.addEventListener('pointerdown', function (ev) {
+    closePop();
+    var p = toWorld(ev);
+    if (nearB(p)) {
+      press = { dragB: true, p: p, sx: ev.clientX, sy: ev.clientY, moved: false };
+      try { canvas.setPointerCapture(ev.pointerId); } catch (err) {   }
+      return;
+    }
+    var o = hitObstacle(p);
+    press = { o: o, p: p, sx: ev.clientX, sy: ev.clientY, moved: false };
+    if (o) { drag = { o: o, dx: p.x - o.cx, dy: p.y - o.cy }; select(o.id); }
+    try { canvas.setPointerCapture(ev.pointerId); } catch (err) {   }
+  });
+  canvas.addEventListener('pointermove', function (ev) {
+    var p = toWorld(ev);
+    if (!press) { canvas.style.cursor = nearB(p) ? 'ew-resize' : (hitObstacle(p) ? 'grab' : 'crosshair'); return; }
+    if (press.dragB) { press.moved = true; setRoute(p.x, false); return; }
+    if (!press.moved && Math.abs(ev.clientX - press.sx) + Math.abs(ev.clientY - press.sy) > 5) {
+      press.moved = true;
+      if (!press.o) drawing = { x0: snap(press.p.x), y0: snap(press.p.y), x1: snap(press.p.x), y1: snap(press.p.y) };
+      canvas.style.cursor = press.o ? 'grabbing' : 'crosshair';
+    }
+    if (!press.moved) return;
+    if (drawing) { drawing.x1 = snap(p.x); drawing.y1 = snap(p.y); return; }
+    if (drag) { var o = drag.o; o.cx = p.x - drag.dx; o.cy = p.y - drag.dy; clampObs(o); }
+  });
+  function nearB(p) {
+    var tol = Math.max(3, 8 / view.sc);
+    return Math.abs(p.x - route) <= tol && Math.abs(p.y) <= 14;
+  }
+  function endPress(ev, cancel) {
+    if (!press) return;
+    var pr = press; press = null;
+    if (pr.dragB) { setRoute(route, true); canvas.style.cursor = 'ew-resize'; return; }
+    if (drawing) {
+      var d = Math.abs(drawing.x1 - drawing.x0), w = Math.abs(drawing.y1 - drawing.y0);
+      if (!cancel && d >= 4 && w >= 4) {
+        var nb = { cx: (drawing.x0 + drawing.x1) / 2, cy: (drawing.y0 + drawing.y1) / 2, dx: d, dy: w };
+        clampObs(nb); var added = world.add(nb); syncInitial(); select(added.id);
+      }
+      drawing = null; return;
+    }
+    if (drag) { drag = null; syncInitial(); renderList(); fillSel(); }
+    canvas.style.cursor = pr.o ? 'grab' : 'crosshair';
+    if (cancel || pr.moved) return;
+    if (pr.o) openObjPop(pr.o, ev);
+    else { select(null); openAddPop(pr.p, ev); }
+  }
+  canvas.addEventListener('pointerup', function (ev) { endPress(ev, false); });
+  canvas.addEventListener('pointercancel', function (ev) { endPress(ev, true); });
+
+  function readColors() {
+    var cs = getComputedStyle(document.documentElement), names = ['floor', 'floor-in', 'grid', 'grid-strong', 'wall', 'tape', 'box', 'box-edge', 'robot', 'robot-edge', 'wheel', 'cone', 'hit', 'trail', 'bad', 'mark', 'muted', 'ink', 'real', 'surprise', 'surprise-fill'];
+    names.forEach(function (n) { colors[n] = cs.getPropertyValue('--' + n).trim(); });
+  }
+  function resize() {
+    applyArena();
+    var wrap = canvas.parentNode, ar = world.arena;
+    cssW = Math.max(300, wrap.clientWidth);
+    var sc0 = (cssW - 52) / (ar.x1 - ar.x0);
+    cssH = Math.round(Math.max(210, Math.min(640, (ar.y1 - ar.y0) * sc0 + 52 + 14)));
+    dpr = Math.min(3, window.devicePixelRatio || 1);
+    canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+    canvas.style.height = cssH + 'px';
+    readColors();
+  }
+  window.addEventListener('resize', resize);
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', readColors);
+  }
+
+  function draw() {
+    var ar = world.arena, pad = 26, c = colors, i, o, k;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = c['floor']; ctx.fillRect(0, 0, cssW, cssH);
+    var sc = Math.min((cssW - 2 * pad) / (ar.x1 - ar.x0), (cssH - 2 * pad) / (ar.y1 - ar.y0));
+    var ox = (cssW - (ar.x1 - ar.x0) * sc) / 2 - ar.x0 * sc, oy = (cssH - (ar.y1 - ar.y0) * sc) / 2 + ar.y1 * sc;
+    view.sc = sc; view.ox = ox; view.oy = oy;
+    function X(x) { return ox + x * sc; }
+    function Y(y) { return oy - y * sc; }
+
+    ctx.fillStyle = c['floor-in']; ctx.fillRect(X(ar.x0), Y(ar.y1), (ar.x1 - ar.x0) * sc, (ar.y1 - ar.y0) * sc);
+    ctx.lineWidth = 1;
+    var gx, gy;
+    for (gx = Math.ceil(ar.x0 / 10) * 10; gx <= ar.x1; gx += 10) {
+      ctx.strokeStyle = gx % 50 === 0 ? c['grid-strong'] : c['grid'];
+      ctx.beginPath(); ctx.moveTo(X(gx) + .5, Y(ar.y1)); ctx.lineTo(X(gx) + .5, Y(ar.y0)); ctx.stroke();
+    }
+    for (gy = Math.ceil(ar.y0 / 10) * 10; gy <= ar.y1; gy += 10) {
+      ctx.strokeStyle = gy % 50 === 0 ? c['grid-strong'] : c['grid'];
+      ctx.beginPath(); ctx.moveTo(X(ar.x0), Y(gy) + .5); ctx.lineTo(X(ar.x1), Y(gy) + .5); ctx.stroke();
+    }
+    ctx.fillStyle = c['muted']; ctx.font = '500 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    var lstep = sc * 50 >= 48 ? 50 : (sc * 100 >= 48 ? 100 : 200);
+    for (gx = Math.ceil(ar.x0 / lstep) * lstep; gx <= ar.x1; gx += lstep) ctx.fillText(gx + ' cm', Math.max(24, Math.min(cssW - 24, X(gx))), Y(ar.y0) + 5);
+
+    ctx.strokeStyle = c['wall']; ctx.lineWidth = 4; ctx.lineJoin = 'miter';
+    ctx.strokeRect(X(ar.x0), Y(ar.y1), (ar.x1 - ar.x0) * sc, (ar.y1 - ar.y0) * sc);
+
+    ctx.globalAlpha = .28; ctx.strokeStyle = c['tape']; ctx.lineWidth = Math.max(5, 4.8 * sc); ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(route), Y(0)); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = c['tape']; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(route), Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = c['tape']; ctx.font = '700 15px Inter, system-ui, sans-serif'; ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right'; ctx.fillText('A', X(-N.ROBOT.axleToRear - 5), Y(0));
+    ctx.textAlign = 'left'; ctx.fillText('B', X(route) + 10, Y(0));
+    ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X(route), Y(-8)); ctx.lineTo(X(route), Y(8)); ctx.stroke();
+
+    ctx.fillStyle = c['floor-in']; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(route), Y(-8) + 7, 5, 0, 6.283); ctx.fill(); ctx.stroke();
+    if (press && press.dragB) {
+      ctx.fillStyle = c['tape']; ctx.font = '600 12px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(route + ' cm', X(route), Y(-8) + 15);
+    }
+
+    if (live.on) ctx.globalAlpha = .3;
+    for (i = 0; i < world.obstacles.length; i++) {
+      o = world.obstacles[i];
+      var rx = X(o.cx - o.dx / 2), ry = Y(o.cy + o.dy / 2), rw = o.dx * sc, rh = o.dy * sc;
+      var fade = ctx.globalAlpha;
+      ctx.fillStyle = c['box']; ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeStyle = c['box-edge']; ctx.lineWidth = 1.8; ctx.strokeRect(rx, ry, rw, rh);
+      ctx.lineWidth = 1; ctx.globalAlpha = .5 * fade;
+      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + rw, ry + rh); ctx.moveTo(rx + rw, ry); ctx.lineTo(rx, ry + rh); ctx.stroke(); ctx.globalAlpha = fade;
+      if (o.vx || o.vy) {
+        var cx = X(o.cx), cy = Y(o.cy), a = Math.atan2(-o.vy, o.vx), L = 14;
+        ctx.fillStyle = c['box-edge']; ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * (L + 9), cy + Math.sin(a) * (L + 9));
+        ctx.lineTo(cx + Math.cos(a + 2.6) * 7 + Math.cos(a) * L, cy + Math.sin(a + 2.6) * 7 + Math.sin(a) * L);
+        ctx.lineTo(cx + Math.cos(a - 2.6) * 7 + Math.cos(a) * L, cy + Math.sin(a - 2.6) * 7 + Math.sin(a) * L);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    if (live.on) {
+      live.obs.forEach(function (b) {
+        if (!b || b.dup) return;
+        var r = liveObsRect(b);
+        if (!b.surprise) {
+          var o = matchedPlanned(r);
+          if (o) {
+            var q = N.obsRect(o);
+            ctx.strokeStyle = colors['real'] || '#0E8F5F'; ctx.lineWidth = 2.5;
+            ctx.strokeRect(X(q.x0) - 2, Y(q.y1) - 2, (q.x1 - q.x0) * sc + 4, (q.y1 - q.y0) * sc + 4);
+            return;
+          }
+        }
+        var px = X(r.x0), py = Y(r.y1), pw = (r.x1 - r.x0) * sc, ph = (r.y1 - r.y0) * sc;
+        ctx.fillStyle = b.surprise ? c['surprise-fill'] : c['box']; ctx.fillRect(px, py, pw, ph);
+        ctx.strokeStyle = b.surprise ? c['surprise'] : (colors['real'] || '#0E8F5F'); ctx.lineWidth = 2; ctx.setLineDash(b.bx > -900 ? [] : [5, 3]);
+        ctx.strokeRect(px, py, pw, ph); ctx.setLineDash([]);
+        if (b.surprise) {
+          ctx.font = '700 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          ctx.fillStyle = c['surprise']; ctx.fillText('neprevăzut', px + pw / 2, py - 3);
+        }
+      });
+    }
+
+    var so = selId !== null ? byId(selId) : null;
+    if (so) {
+      ctx.strokeStyle = c['tape']; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+      ctx.strokeRect(X(so.cx - so.dx / 2) - 3, Y(so.cy + so.dy / 2) - 3, so.dx * sc + 6, so.dy * sc + 6); ctx.setLineDash([]);
+    }
+    if (drawing) {
+      var qx = Math.min(drawing.x0, drawing.x1), qy = Math.max(drawing.y0, drawing.y1), qw = Math.abs(drawing.x1 - drawing.x0), qh = Math.abs(drawing.y1 - drawing.y0);
+      ctx.fillStyle = c['box']; ctx.globalAlpha = .45; ctx.fillRect(X(qx), Y(qy), qw * sc, qh * sc); ctx.globalAlpha = 1;
+      ctx.strokeStyle = c['box-edge']; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.strokeRect(X(qx), Y(qy), qw * sc, qh * sc); ctx.setLineDash([]);
+      ctx.fillStyle = c['ink']; ctx.font = '600 12px Inter, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+      ctx.fillText(qh + ' × ' + qw + ' cm', X(qx) + 2, Y(qy) - 3);
+    }
+
+    if ($('showTrail').checked && sim.trail.length > 1 && !(live.on && live.mode === 'mirror')) {
+      ctx.strokeStyle = c['trail']; ctx.lineWidth = 1.8; ctx.globalAlpha = .85; ctx.beginPath();
+      ctx.moveTo(X(sim.trail[0][0]), Y(sim.trail[0][1]));
+      for (k = 1; k < sim.trail.length; k++) ctx.lineTo(X(sim.trail[k][0]), Y(sim.trail[k][1]));
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+
+    var nav = sim.nav;
+    if ($('showMarks').checked && nav.dbg && nav.dbg.origin && nav.out && !(live.on && live.mode === 'mirror')) {
+      var og = nav.dbg.origin, sd = nav.out.side;
+      function WX(px) { return og.x + px; }
+      function WY(py) { return og.y - sd * py; }
+      ctx.strokeStyle = c['mark']; ctx.fillStyle = c['mark']; ctx.lineWidth = 1.5;
+      if (nav.out.edgeFound && nav.dbg.edge) {
+        var ex = X(WX(nav.dbg.edge.X)), ey = Y(WY(nav.dbg.edge.Y));
+        ctx.beginPath(); ctx.moveTo(ex, ey - 6); ctx.lineTo(ex + 6, ey); ctx.lineTo(ex, ey + 6); ctx.lineTo(ex - 6, ey); ctx.closePath(); ctx.fill();
+        ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(X(og.x), Y(WY(nav.out.yGoal))); ctx.lineTo(X(og.x + nav.out.xFace + FW90()), Y(WY(nav.out.yGoal))); ctx.stroke(); ctx.setLineDash([]);
+      }
+      if (nav.out.rearOK) {
+        var bx = X(WX(nav.out.boxMaxX));
+        ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(bx, Y(WY(0))); ctx.lineTo(bx, Y(WY(nav.out.yGoal))); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+
+    var showSim = !(live.on && live.mode === 'mirror');
+
+    var rb = sim.robot, names = ['front', 'left', 'right'], p, rd, rr;
+    if ($('showCones').checked && showSim) {
+      for (k = 0; k < 3; k++) {
+        p = sim.sensorPose(names[k]); rd = sim.sens[names[k]]; rr = rd < 8000 ? Math.min(rd / 10, 120) : 60;
+        ctx.fillStyle = c['cone']; ctx.beginPath(); ctx.moveTo(X(p.x), Y(p.y));
+        ctx.arc(X(p.x), Y(p.y), rr * sc, -(p.a + 12 * Math.PI / 180), -(p.a - 12 * Math.PI / 180)); ctx.closePath(); ctx.fill();
+        if (rd < 8000) {
+          ctx.fillStyle = c['hit']; ctx.beginPath(); ctx.arc(X(p.x + Math.cos(p.a) * rd / 10), Y(p.y + Math.sin(p.a) * rd / 10), 3, 0, 6.283); ctx.fill();
+        }
+      }
+    }
+
+    if (showSim) {
+    ctx.save(); ctx.translate(X(rb.x), Y(rb.y)); ctx.rotate(-rb.th); ctx.scale(sc, sc);
+    ctx.fillStyle = c['robot']; ctx.strokeStyle = sim.hit ? c['bad'] : c['robot-edge']; ctx.lineWidth = (sim.hit ? 2.6 : 1.6) / sc;
+    ctx.beginPath(); ctx.rect(-N.ROBOT.axleToRear, -N.ROBOT.wid / 2, N.ROBOT.len, N.ROBOT.wid); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = c['wheel'];
+    ctx.fillRect(-3.5, -N.ROBOT.wid / 2 - .6, 7, 2.8); ctx.fillRect(-3.5, N.ROBOT.wid / 2 - 2.2, 7, 2.8);
+    ctx.strokeStyle = c['robot-edge']; ctx.lineWidth = 1 / sc;
+    ctx.beginPath(); ctx.moveTo(-1.8, 0); ctx.lineTo(1.8, 0); ctx.moveTo(0, -1.8); ctx.lineTo(0, 1.8); ctx.stroke();
+    ctx.fillStyle = c['tape'];
+    ctx.beginPath(); ctx.moveTo(N.ROBOT.front - 1, -3.2); ctx.lineTo(N.ROBOT.front - 1, 3.2); ctx.lineTo(N.ROBOT.front + 2.2, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = c['hit'];
+    [[N.ROBOT.front - 1.2, 0], [N.ROBOT.front - 1.2, -N.ROBOT.sideOffset], [N.ROBOT.front - 1.2, N.ROBOT.sideOffset]].forEach(function (s) { ctx.beginPath(); ctx.arc(s[0], s[1], 1.1, 0, 6.283); ctx.fill(); });
+    ctx.restore();
+    }
+
+    if (live.on && live.last) {
+      var D = live.last, rx0 = D.x, ry0 = -D.y, rth = -D.th * Math.PI / 180, cr = colors['real'] || '#0E8F5F';
+      if ($('showTrail').checked && live.trail.length > 1) {
+        ctx.strokeStyle = cr; ctx.lineWidth = 2.2; ctx.globalAlpha = .9; ctx.beginPath();
+        ctx.moveTo(X(live.trail[0][0]), Y(live.trail[0][1]));
+        for (k = 1; k < live.trail.length; k++) ctx.lineTo(X(live.trail[k][0]), Y(live.trail[k][1]));
+        if (D.run) ctx.lineTo(X(rx0), Y(ry0));
+        ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      if ($('showMarks').checked && D.ox > -900) {
+        var sdr = D.sd || 1;
+        ctx.strokeStyle = cr; ctx.lineWidth = 1.5; ctx.setLineDash([2, 4]);
+        if (D.gy > -900) { ctx.beginPath(); ctx.moveTo(X(D.ox), Y(-(D.oy + sdr * D.gy))); ctx.lineTo(X(D.ox + 90), Y(-(D.oy + sdr * D.gy))); ctx.stroke(); }
+        if (D.bx > -900) { ctx.beginPath(); ctx.moveTo(X(D.ox + D.bx), Y(-D.oy)); ctx.lineTo(X(D.ox + D.bx), Y(-(D.oy + sdr * (D.gy > -900 ? D.gy : 20)))); ctx.stroke(); }
+        ctx.setLineDash([]);
+      }
+      if ($('showCones').checked) {
+        var rsn = [[D.f, 0, 0], [D.l, N.ROBOT.sideOffset, Math.PI / 2], [D.r, -N.ROBOT.sideOffset, -Math.PI / 2]], q, cc = Math.cos(rth), ss = Math.sin(rth);
+        for (q = 0; q < 3; q++) {
+          var px = rx0 + N.ROBOT.front * cc - rsn[q][1] * ss, py = ry0 + N.ROBOT.front * ss + rsn[q][1] * cc, pa = rth + rsn[q][2], rr2 = rsn[q][0];
+          if (rr2 < 0) continue;
+          var len = rr2 < 8000 ? Math.min(rr2 / 10, 120) : 60;
+          ctx.globalAlpha = .22; ctx.fillStyle = cr; ctx.beginPath(); ctx.moveTo(X(px), Y(py));
+          ctx.arc(X(px), Y(py), len * sc, -(pa + 12 * Math.PI / 180), -(pa - 12 * Math.PI / 180)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+          if (rr2 < 8000) { ctx.fillStyle = cr; ctx.beginPath(); ctx.arc(X(px + Math.cos(pa) * rr2 / 10), Y(py + Math.sin(pa) * rr2 / 10), 3, 0, 6.283); ctx.fill(); }
+        }
+      }
+      ctx.save(); ctx.translate(X(rx0), Y(ry0)); ctx.rotate(-rth); ctx.scale(sc, sc);
+      ctx.globalAlpha = .92; ctx.fillStyle = c['robot']; ctx.strokeStyle = cr; ctx.lineWidth = 2.4 / sc;
+      ctx.beginPath(); ctx.rect(-N.ROBOT.axleToRear, -N.ROBOT.wid / 2, N.ROBOT.len, N.ROBOT.wid); ctx.fill(); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = c['wheel']; ctx.fillRect(-3.5, -N.ROBOT.wid / 2 - .6, 7, 2.8); ctx.fillRect(-3.5, N.ROBOT.wid / 2 - 2.2, 7, 2.8);
+      ctx.fillStyle = cr; ctx.beginPath(); ctx.moveTo(N.ROBOT.front - 1, -3.2); ctx.lineTo(N.ROBOT.front - 1, 3.2); ctx.lineTo(N.ROBOT.front + 2.2, 0); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+  function FW90() { return 40; }
+
+  var MODES = { DRIVE: 'Merge pe traseu', BRAKE: 'Frânează', CHOOSE: 'Alege partea', OUT: 'Ocolește (arc și trecere)', RET: 'Revine pe arc', ALIGN: 'Se aliniază', ARRIVED: 'Ajuns la B', FAILED: 'Oprit de siguranță' };
+  function updateTelemetry(force) {
+    var now = performance.now();
+    if (live.on) return;
+    if (!force && now - lastTel < 100) return;
+    lastTel = now;
+    var nav = sim.nav, rb = sim.robot, m = nav.mode;
+    $('vMode').textContent = MODES[m] || m;
+    var prog = Math.min(route, nav.progress + (nav.seg ? (((sim.robot.encL + sim.robot.encR) / 2 - nav.seg.startAvg) / N.ROBOT.ppc) : 0));
+    $('vProg').textContent = fmt(prog, 0) + ' cm';
+    $('barFill').style.width = Math.max(0, Math.min(100, prog / route * 100)) + '%';
+    $('barText').textContent = fmt(prog, 0) + ' / ' + fmt(route, 0) + ' cm';
+    $('vAvoid').textContent = String(nav.avoidances);
+    $('vPos').textContent = fmt(rb.x, 0) + ', ' + fmt(rb.y, 1) + ' cm';
+    var ang = -rb.th * N.R2D; $('vAng').textContent = fmt(ang, 1) + '°';
+    var s = sim.sens; function sv(v) { return v >= 8000 ? '—' : String(v); }
+    $('vSens').textContent = sv(s.front) + ' / ' + sv(s.left) + ' / ' + sv(s.right) + ' mm';
+    $('vEst').textContent = (m === 'OUT' || m === 'RET') && nav.out ? fmt(nav.out.X, 1) + ', ' + fmt(Math.max(0, nav.dbg.Y !== undefined ? nav.dbg.Y : nav.out.Y), 1) + ' cm' : '—';
+    $('vMin').textContent = sim.minClear < 1e8 ? fmt(Math.max(0, sim.minClear), 1) + ' cm' : '—';
+    var hit = $('vHit'); hit.textContent = String(sim.collisions); hit.className = sim.collisions ? 'bad' : '';
+    $('clock').textContent = fmt(sim.t, 1) + ' s';
+    var chip = $('chip');
+    if (m === 'ARRIVED') { chip.textContent = sim.collisions ? 'Ajuns, dar cu contact' : 'Ajuns la B'; chip.setAttribute('data-tone', sim.collisions ? 'bad' : 'ok'); }
+    else if (m === 'FAILED') { chip.textContent = 'Oprit de siguranță'; chip.setAttribute('data-tone', 'bad'); }
+    else if (running) { chip.textContent = 'Rulează'; chip.setAttribute('data-tone', 'run'); }
+    else { chip.textContent = sim.t > 0 ? 'În pauză' : 'Oprit'; chip.setAttribute('data-tone', ''); }
+  }
+
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (running && !sim.finished()) {
+      var n = Math.min(500, Math.round(dt * speed / N.DT)), i;
+      for (i = 0; i < n && !sim.finished(); i++) sim.step();
+      if (sim.finished()) { running = false; updateButtons(); updateTelemetry(true); }
+    }
+    draw(); updateTelemetry(false); updateLiveTelemetry();
+    requestAnimationFrame(frame);
+  }
+
+  loadPreset(preset.id);
+  readColors(); resize();
+  if (fromRobot) liveConnect();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
